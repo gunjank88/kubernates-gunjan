@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Pod
+metadata:
+    name: staticpod12
+    labels:
+      app: cka
+spec:
+  containers:
+  - name: staticpod12
+    image: docker.io/httpd
+    ports:
+    - containerPort: 80

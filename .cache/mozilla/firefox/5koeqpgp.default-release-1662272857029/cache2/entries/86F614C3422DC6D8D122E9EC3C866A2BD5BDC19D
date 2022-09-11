@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html>
+<head data-suburl="">
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+	<meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+	
+		<meta name="author" content="Gogs" />
+		<meta name="description" content="Gogs is a painless self-hosted Git service" />
+		<meta name="keywords" content="go, git, self-hosted, gogs">
+	
+	<meta name="referrer" content="no-referrer" />
+	<meta name="_csrf" content="d6dGi6UnmtIyzHa8nGFEThIuuu06MTY2Mjc4MzcxMTEwMzg4MDA3Mg" />
+	<meta name="_suburl" content="" />
+
+	
+	
+		<meta property="og:url" content="http://localhost:3000/" />
+		<meta property="og:type" content="website" />
+		<meta property="og:title" content="Gogs">
+		<meta property="og:description" content="Gogs is a painless self-hosted Git service.">
+		<meta property="og:image" content="http://localhost:3000/img/favicon.png" />
+		<meta property="og:site_name" content="Gogs">
+	
+
+	<link rel="shortcut icon" href="/img/favicon.png" />
+
+	<script src="/js/jquery-3.6.0.min.js"></script>
+	<script src="/js/libs/jquery.are-you-sure.js"></script>
+	<link rel="stylesheet" href="/assets/font-awesome-4.6.3/css/font-awesome.min.css">
+	<link rel="stylesheet" href="/assets/octicons-4.3.0/octicons.min.css">
+
+	
+	
+
+	
+
+	
+	<link rel="stylesheet" href="/css/semantic-2.4.2.min.css">
+	<link rel="stylesheet" href="/css/gogs.min.css?v=cefbaa08d92cdb2b888f5ec913dfe38e5027b20a">
+	<noscript>
+		<style>
+			.dropdown:hover > .menu { display: block; }
+			.ui.secondary.menu .dropdown.item > .menu { margin-top: 0; }
+		 </style>
+	</noscript>
+
+	
+	<script src="/js/semantic-2.4.2.min.js"></script>
+	<script src="/js/gogs.js?v=cefbaa08d92cdb2b888f5ec913dfe38e5027b20a"></script>
+
+	<title>Explore - Gogs</title>
+
+	<meta name="theme-color" content="#ff5343">
+
+	
+</head>
+<body>
+	<div class="full height">
+		<noscript>This website works better with JavaScript</noscript>
+
+		
+			<div class="following bar light">
+				<div class="ui container">
+					<div class="ui grid">
+						<div class="column">
+							<div class="ui top secondary menu">
+								<a class="item brand" href="/">
+									<img class="ui mini image" src="/img/favicon.png">
+								</a>
+
+								
+									<a class="item" href="/">Dashboard</a>
+									<a class="item" href="/issues">Issues</a>
+									<a class="item" href="/pulls">Pull Requests</a>
+								
+
+								<a class="item active" href="/explore/repos">Explore</a>
+								
+
+								
+									<div class="right menu">
+										<div class="ui dropdown head link jump item poping up" data-content="Create..." data-variation="tiny inverted">
+											<span class="text">
+												<i class="octicon octicon-plus"><span class="sr-only">Create...</span></i>
+												<i class="octicon octicon-triangle-down"></i>
+											</span>
+											<div class="menu">
+												<a class="item" href="/repo/create">
+													<i class="octicon octicon-plus"></i> New Repository
+												</a>
+												<a class="item" href="/repo/migrate">
+													<i class="octicon octicon-repo-clone"></i> New Migration
+												</a>
+												
+												<a class="item" href="/org/create">
+													<i class="octicon octicon-organization"></i> New Organization
+												</a>
+												
+											</div>
+										</div>
+
+										<div class="ui dropdown head link jump item poping up" tabindex="-1" data-content="User profile and more" data-variation="tiny inverted">
+											<span class="text avatar">
+												<img class="ui small rounded image" src="https://secure.gravatar.com/avatar/c8b7b14c50c538128f435984566ca973?d=identicon">
+												<span class="sr-only">User profile and more</span>
+												<i class="octicon octicon-triangle-down" tabindex="-1"></i>
+											</span>
+											<div class="menu" tabindex="-1">
+												<div class="ui header">
+													Signed in as <strong>gunjan1234</strong>
+												</div>
+
+												<div class="divider"></div>
+												<a class="item" href="/gunjan1234">
+													<i class="octicon octicon-person"></i> Your Profile
+												</a>
+												<a class=" item" href="/user/settings">
+													<i class="octicon octicon-settings"></i> Your Settings
+												</a>
+												<a class="item" target="_blank" rel="noopener noreferrer" href="https://gogs.io/docs" rel="noreferrer">
+													<i class="octicon octicon-question"></i> Help
+												</a>
+												
+													<div class="divider"></div>
+
+													<a class=" item" href="/admin">
+														<i class="icon settings"></i> Admin Panel
+													</a>
+												
+
+												<div class="divider"></div>
+
+												<form id="logout-form" class="item" action="/user/logout" method="POST">
+													<input type="hidden" name="_csrf" value="d6dGi6UnmtIyzHa8nGFEThIuuu06MTY2Mjc4MzcxMTEwMzg4MDA3Mg">
+													<div class="submit-button" data-form="#logout-form">
+														<i class="octicon octicon-sign-out"></i> Sign Out
+													</div>
+												</form>
+											</div>
+										</div>
+									</div>
+
+								
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		
+
+		
+
+
+<div class="explore repositories">
+	<div class="ui container">
+		<div class="ui grid">
+			<div class="four wide column">
+	<div class="ui vertical menu navbar">
+		<div class="header item">Explore</div>
+		<a class="active item" href="/explore/repos">
+			<span class="octicon octicon-repo"></span> Repositories
+		</a>
+		<a class=" item" href="/explore/users">
+			<span class="octicon octicon-person"></span> Users
+		</a>
+		<a class=" item" href="/explore/organizations">
+			<span class="octicon octicon-organization"></span> Organizations
+		</a>
+	</div>
+</div>
+
+			<div class="twelve wide column content">
+				<form class="ui form">
+	<div class="ui fluid action input">
+	  <input name="q" value="" placeholder="Search..." autofocus>
+	  <button class="ui blue button">Search</button>
+	</div>
+</form>
+<div class="ui divider"></div>
+
+				<div class="ui repository list">
+	
+</div>
+
+				
+	
+
+
+			</div>
+		</div>
+	</div>
+</div>
+
+	</div>
+	<footer>
+		<div class="ui container">
+			<div class="ui left">
+				© 2022 Gogs
+			</div>
+			<div class="ui right links">
+				
+					<span>
+						Page: <strong>14ms</strong> Template: <strong>1ms</strong>
+					</span>
+				
+				
+				<div class="ui language bottom floating slide up dropdown link item">
+					<i class="world icon"></i>
+					<div class="text">English</div>
+					<div class="menu">
+						
+							<a class="item active selected" href="#">English</a>
+						
+							<a class="item " href="/explore/repos?lang=zh-CN">简体中文</a>
+						
+							<a class="item " href="/explore/repos?lang=zh-HK">繁體中文（香港）</a>
+						
+							<a class="item " href="/explore/repos?lang=zh-TW">繁體中文（臺灣）</a>
+						
+							<a class="item " href="/explore/repos?lang=de-DE">Deutsch</a>
+						
+							<a class="item " href="/explore/repos?lang=fr-FR">français</a>
+						
+							<a class="item " href="/explore/repos?lang=nl-NL">Nederlands</a>
+						
+							<a class="item " href="/explore/repos?lang=lv-LV">latviešu</a>
+						
+							<a class="item " href="/explore/repos?lang=ru-RU">русский</a>
+						
+							<a class="item " href="/explore/repos?lang=ja-JP">日本語</a>
+						
+							<a class="item " href="/explore/repos?lang=es-ES">español</a>
+						
+							<a class="item " href="/explore/repos?lang=pt-BR">português do Brasil</a>
+						
+							<a class="item " href="/explore/repos?lang=pl-PL">polski</a>
+						
+							<a class="item " href="/explore/repos?lang=bg-BG">български</a>
+						
+							<a class="item " href="/explore/repos?lang=it-IT">italiano</a>
+						
+							<a class="item " href="/explore/repos?lang=fi-FI">suomi</a>
+						
+							<a class="item " href="/explore/repos?lang=tr-TR">Türkçe</a>
+						
+							<a class="item " href="/explore/repos?lang=cs-CZ">čeština</a>
+						
+							<a class="item " href="/explore/repos?lang=sr-SP">српски</a>
+						
+							<a class="item " href="/explore/repos?lang=sv-SE">svenska</a>
+						
+							<a class="item " href="/explore/repos?lang=ko-KR">한국어</a>
+						
+							<a class="item " href="/explore/repos?lang=gl-ES">galego</a>
+						
+							<a class="item " href="/explore/repos?lang=uk-UA">українська</a>
+						
+							<a class="item " href="/explore/repos?lang=en-GB">English (United Kingdom)</a>
+						
+							<a class="item " href="/explore/repos?lang=hu-HU">Magyar</a>
+						
+							<a class="item " href="/explore/repos?lang=sk-SK">Slovenčina</a>
+						
+							<a class="item " href="/explore/repos?lang=id-ID">Indonesian</a>
+						
+							<a class="item " href="/explore/repos?lang=fa-IR">Persian</a>
+						
+							<a class="item " href="/explore/repos?lang=vi-VN">Vietnamese</a>
+						
+							<a class="item " href="/explore/repos?lang=pt-PT">Português</a>
+						
+							<a class="item " href="/explore/repos?lang=mn-MN">Монгол</a>
+						
+							<a class="item " href="/explore/repos?lang=ro-RO">Română</a>
+						
+					</div>
+				</div>
+				<a href="/assets/librejs/librejs.html" style="display:none" data-jslicense="1">Javascript Licenses</a>
+				<a target="_blank" rel="noopener noreferrer" href="https://gogs.io">Website</a>
+			</div>
+		</div>
+	</footer>
+</body>
+
+
+
+
+
+
+
+
+
+<script src="/js/libs/emojify-1.1.0.min.js"></script>
+<script src="/js/libs/clipboard-2.0.4.min.js"></script>
+
+
+</html>
+
+R�c*�      c�c�D��qc�   [    O^partitionKey=%28http%2C172.31.54.141%2C30917%29,:http://172.31.54.141:30917/explore/repos necko:classified 1 strongly-framed 1 request-method GET response-head HTTP/1.1 200 OK
+Content-Type: text/html; charset=UTF-8
+X-Content-Type-Options: nosniff
+X-Frame-Options: deny
+Date: Sat, 10 Sep 2022 04:21:51 GMT
+ original-response-headers Content-Type: text/html; charset=UTF-8
+Set-Cookie: _csrf=d6dGi6UnmtIyzHa8nGFEThIuuu06MTY2Mjc4MzcxMTEwMzg4MDA3Mg; Path=/; Domain=localhost; Expires=Sun, 11 Sep 2022 04:21:51 GMT; HttpOnly
+X-Content-Type-Options: nosniff
+X-Frame-Options: deny
+Date: Sat, 10 Sep 2022 04:21:51 GMT
+Transfer-Encoding: chunked
+ ctid 1 uncompressed-len 0 net-response-time-onstart 21 net-response-time-onstop 24   $�

@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html>
+<head data-suburl="">
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+	<meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+	
+		<meta name="author" content="Gogs" />
+		<meta name="description" content="Gogs is a painless self-hosted Git service" />
+		<meta name="keywords" content="go, git, self-hosted, gogs">
+	
+	<meta name="referrer" content="no-referrer" />
+	<meta name="_csrf" content="RGpW7Fxh8cEKy4_bUOEntFE_56A6MTY2Mjc4MzcwODExMDg3MTUwMA" />
+	<meta name="_suburl" content="" />
+
+	
+	
+		<meta property="og:url" content="http://localhost:3000/" />
+		<meta property="og:type" content="website" />
+		<meta property="og:title" content="Gogs">
+		<meta property="og:description" content="Gogs is a painless self-hosted Git service.">
+		<meta property="og:image" content="http://localhost:3000/img/favicon.png" />
+		<meta property="og:site_name" content="Gogs">
+	
+
+	<link rel="shortcut icon" href="/img/favicon.png" />
+
+	<script src="/js/jquery-3.6.0.min.js"></script>
+	<script src="/js/libs/jquery.are-you-sure.js"></script>
+	<link rel="stylesheet" href="/assets/font-awesome-4.6.3/css/font-awesome.min.css">
+	<link rel="stylesheet" href="/assets/octicons-4.3.0/octicons.min.css">
+
+	
+	
+
+	
+
+	
+	<link rel="stylesheet" href="/css/semantic-2.4.2.min.css">
+	<link rel="stylesheet" href="/css/gogs.min.css?v=cefbaa08d92cdb2b888f5ec913dfe38e5027b20a">
+	<noscript>
+		<style>
+			.dropdown:hover > .menu { display: block; }
+			.ui.secondary.menu .dropdown.item > .menu { margin-top: 0; }
+		 </style>
+	</noscript>
+
+	
+	<script src="/js/semantic-2.4.2.min.js"></script>
+	<script src="/js/gogs.js?v=cefbaa08d92cdb2b888f5ec913dfe38e5027b20a"></script>
+
+	<title>Pull Requests - Gogs</title>
+
+	<meta name="theme-color" content="#ff5343">
+
+	
+</head>
+<body>
+	<div class="full height">
+		<noscript>This website works better with JavaScript</noscript>
+
+		
+			<div class="following bar light">
+				<div class="ui container">
+					<div class="ui grid">
+						<div class="column">
+							<div class="ui top secondary menu">
+								<a class="item brand" href="/">
+									<img class="ui mini image" src="/img/favicon.png">
+								</a>
+
+								
+									<a class="item" href="/">Dashboard</a>
+									<a class="item" href="/issues">Issues</a>
+									<a class="item active" href="/pulls">Pull Requests</a>
+								
+
+								<a class="item" href="/explore/repos">Explore</a>
+								
+
+								
+									<div class="right menu">
+										<div class="ui dropdown head link jump item poping up" data-content="Create..." data-variation="tiny inverted">
+											<span class="text">
+												<i class="octicon octicon-plus"><span class="sr-only">Create...</span></i>
+												<i class="octicon octicon-triangle-down"></i>
+											</span>
+											<div class="menu">
+												<a class="item" href="/repo/create">
+													<i class="octicon octicon-plus"></i> New Repository
+												</a>
+												<a class="item" href="/repo/migrate">
+													<i class="octicon octicon-repo-clone"></i> New Migration
+												</a>
+												
+												<a class="item" href="/org/create">
+													<i class="octicon octicon-organization"></i> New Organization
+												</a>
+												
+											</div>
+										</div>
+
+										<div class="ui dropdown head link jump item poping up" tabindex="-1" data-content="User profile and more" data-variation="tiny inverted">
+											<span class="text avatar">
+												<img class="ui small rounded image" src="https://secure.gravatar.com/avatar/c8b7b14c50c538128f435984566ca973?d=identicon">
+												<span class="sr-only">User profile and more</span>
+												<i class="octicon octicon-triangle-down" tabindex="-1"></i>
+											</span>
+											<div class="menu" tabindex="-1">
+												<div class="ui header">
+													Signed in as <strong>gunjan1234</strong>
+												</div>
+
+												<div class="divider"></div>
+												<a class="item" href="/gunjan1234">
+													<i class="octicon octicon-person"></i> Your Profile
+												</a>
+												<a class=" item" href="/user/settings">
+													<i class="octicon octicon-settings"></i> Your Settings
+												</a>
+												<a class="item" target="_blank" rel="noopener noreferrer" href="https://gogs.io/docs" rel="noreferrer">
+													<i class="octicon octicon-question"></i> Help
+												</a>
+												
+													<div class="divider"></div>
+
+													<a class=" item" href="/admin">
+														<i class="icon settings"></i> Admin Panel
+													</a>
+												
+
+												<div class="divider"></div>
+
+												<form id="logout-form" class="item" action="/user/logout" method="POST">
+													<input type="hidden" name="_csrf" value="RGpW7Fxh8cEKy4_bUOEntFE_56A6MTY2Mjc4MzcwODExMDg3MTUwMA">
+													<div class="submit-button" data-form="#logout-form">
+														<i class="octicon octicon-sign-out"></i> Sign Out
+													</div>
+												</form>
+											</div>
+										</div>
+									</div>
+
+								
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		
+
+		
+
+
+<div class="dashboard issues">
+	<div class="ui container">
+	<div class="ui floating dropdown link jump">
+		<span class="text">
+			<img class="ui avatar image" src="https://secure.gravatar.com/avatar/c8b7b14c50c538128f435984566ca973?d=identicon">
+			gunjan1234
+			<i class="dropdown icon"></i>
+		</span>
+		<div class="context user overflow menu" tabindex="-1">
+			<div class="ui header">
+				Switch Dashboard Context
+			</div>
+			<div class="items">
+				<a class="active selected item" href="/pulls">
+					<img class="ui avatar image" src="https://secure.gravatar.com/avatar/c8b7b14c50c538128f435984566ca973?d=identicon">
+					gunjan1234
+				</a>
+				
+			</div>
+			<a class="item" href="/org/create">
+				<i class="octicon octicon-plus"></i>&nbsp;&nbsp;&nbsp;New Organization
+			</a>
+		</div>
+	</div>
+
+	
+	<div class="ui divider"></div>
+</div>
+
+	<div class="ui container">
+		<div class="ui grid">
+			<div class="four wide column">
+				<div class="ui secondary vertical filter menu">
+					<a class="ui basic blue button item" href="/pulls?type=your_repositories&repo=0&sort=&state=open">
+						In your repositories
+						<strong class="ui right">0</strong>
+					</a>
+					
+						<a class=" item" href="/pulls?type=assigned&repo=0&sort=&state=open">
+							Assigned to you
+							<strong class="ui right">0</strong>
+						</a>
+						<a class=" item" href="/pulls?type=created_by&repo=0&sort=&state=open">
+							Created by you
+							<strong class="ui right">0</strong>
+						</a>
+					
+					<div class="ui divider"></div>
+					
+				</div>
+			</div>
+			<div class="twelve wide column content">
+				<div class="ui tiny basic status buttons">
+					<a class="ui green active basic button" href="/pulls?type=your_repositories&repo=0&sort=&state=open">
+						<i class="octicon octicon-issue-opened"></i>
+						0 Open
+					</a>
+					<a class="ui  basic button" href="/pulls?type=your_repositories&repo=0&sort=&state=closed">
+						<i class="octicon octicon-issue-closed"></i>
+						0 Closed
+					</a>
+				</div>
+				<div class="ui right floated secondary filter menu">
+					
+					<div class="ui dropdown type jump item">
+						<span class="text">
+							Sort
+							<i class="dropdown icon"></i>
+						</span>
+						<div class="menu">
+							<a class="active item" href="/pulls?type=your_repositories&repo=0&sort=latest&state=open">Newest</a>
+							<a class=" item" href="/pulls?type=your_repositories&repo=0&sort=oldest&state=open">Oldest</a>
+							<a class=" item" href="/pulls?type=your_repositories&repo=0&sort=recentupdate&state=open">Recently updated</a>
+							<a class=" item" href="/pulls?type=your_repositories&repo=0&sort=leastupdate&state=open">Least recently updated</a>
+							<a class=" item" href="/pulls?type=your_repositories&repo=0&sort=mostcomment&state=open">Most commented</a>
+							<a class=" item" href="/pulls?type=your_repositories&repo=0&sort=leastcomment&state=open">Least commented</a>
+						</div>
+					</div>
+				</div>
+
+				<div class="issue list">
+					
+
+					
+						
+					
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+
+	</div>
+	<footer>
+		<div class="ui container">
+			<div class="ui left">
+				© 2022 Gogs
+			</div>
+			<div class="ui right links">
+				
+					<span>
+						Page: <strong>13ms</strong> Template: <strong>0ms</strong>
+					</span>
+				
+				
+				<div class="ui language bottom floating slide up dropdown link item">
+					<i class="world icon"></i>
+					<div class="text">English</div>
+					<div class="menu">
+						
+							<a class="item active selected" href="#">English</a>
+						
+							<a class="item " href="/pulls?lang=zh-CN">简体中文</a>
+						
+							<a class="item " href="/pulls?lang=zh-HK">繁體中文（香港）</a>
+						
+							<a class="item " href="/pulls?lang=zh-TW">繁體中文（臺灣）</a>
+						
+							<a class="item " href="/pulls?lang=de-DE">Deutsch</a>
+						
+							<a class="item " href="/pulls?lang=fr-FR">français</a>
+						
+							<a class="item " href="/pulls?lang=nl-NL">Nederlands</a>
+						
+							<a class="item " href="/pulls?lang=lv-LV">latviešu</a>
+						
+							<a class="item " href="/pulls?lang=ru-RU">русский</a>
+						
+							<a class="item " href="/pulls?lang=ja-JP">日本語</a>
+						
+							<a class="item " href="/pulls?lang=es-ES">español</a>
+						
+							<a class="item " href="/pulls?lang=pt-BR">português do Brasil</a>
+						
+							<a class="item " href="/pulls?lang=pl-PL">polski</a>
+						
+							<a class="item " href="/pulls?lang=bg-BG">български</a>
+						
+							<a class="item " href="/pulls?lang=it-IT">italiano</a>
+						
+							<a class="item " href="/pulls?lang=fi-FI">suomi</a>
+						
+							<a class="item " href="/pulls?lang=tr-TR">Türkçe</a>
+						
+							<a class="item " href="/pulls?lang=cs-CZ">čeština</a>
+						
+							<a class="item " href="/pulls?lang=sr-SP">српски</a>
+						
+							<a class="item " href="/pulls?lang=sv-SE">svenska</a>
+						
+							<a class="item " href="/pulls?lang=ko-KR">한국어</a>
+						
+							<a class="item " href="/pulls?lang=gl-ES">galego</a>
+						
+							<a class="item " href="/pulls?lang=uk-UA">українська</a>
+						
+							<a class="item " href="/pulls?lang=en-GB">English (United Kingdom)</a>
+						
+							<a class="item " href="/pulls?lang=hu-HU">Magyar</a>
+						
+							<a class="item " href="/pulls?lang=sk-SK">Slovenčina</a>
+						
+							<a class="item " href="/pulls?lang=id-ID">Indonesian</a>
+						
+							<a class="item " href="/pulls?lang=fa-IR">Persian</a>
+						
+							<a class="item " href="/pulls?lang=vi-VN">Vietnamese</a>
+						
+							<a class="item " href="/pulls?lang=pt-PT">Português</a>
+						
+							<a class="item " href="/pulls?lang=mn-MN">Монгол</a>
+						
+							<a class="item " href="/pulls?lang=ro-RO">Română</a>
+						
+					</div>
+				</div>
+				<a href="/assets/librejs/librejs.html" style="display:none" data-jslicense="1">Javascript Licenses</a>
+				<a target="_blank" rel="noopener noreferrer" href="https://gogs.io">Website</a>
+			</div>
+		</div>
+	</footer>
+</body>
+
+
+
+
+
+
+
+
+
+<script src="/js/libs/emojify-1.1.0.min.js"></script>
+<script src="/js/libs/clipboard-2.0.4.min.js"></script>
+
+
+</html>
+
+��b�s�      c�c�D��oc�   S    O^partitionKey=%28http%2C172.31.54.141%2C30917%29,:http://172.31.54.141:30917/pulls necko:classified 1 strongly-framed 1 request-method GET response-head HTTP/1.1 200 OK
+Content-Type: text/html; charset=UTF-8
+X-Content-Type-Options: nosniff
+X-Frame-Options: deny
+Date: Sat, 10 Sep 2022 04:21:48 GMT
+ original-response-headers Content-Type: text/html; charset=UTF-8
+Set-Cookie: _csrf=RGpW7Fxh8cEKy4_bUOEntFE_56A6MTY2Mjc4MzcwODExMDg3MTUwMA; Path=/; Domain=localhost; Expires=Sun, 11 Sep 2022 04:21:48 GMT; HttpOnly
+X-Content-Type-Options: nosniff
+X-Frame-Options: deny
+Date: Sat, 10 Sep 2022 04:21:48 GMT
+Transfer-Encoding: chunked
+ ctid 1 uncompressed-len 0 net-response-time-onstart 28 net-response-time-onstop 32   ,

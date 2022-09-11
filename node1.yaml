@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Pod
+metadata: 
+  name: nginx11-nodeselect
+  labels: 
+   env: test
+spec:
+   containers:
+   - name: nginx11
+     image: httpd
+   nodeSelector: 
+       env: cka

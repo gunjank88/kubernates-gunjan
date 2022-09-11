@@ -1,0 +1,4030 @@
+"use strict";
+
+var csrf;
+var suburl;
+
+function initCommentPreviewTab($form) {
+  var $tabMenu = $form.find(".tabular.menu");
+  $tabMenu.find(".item").tab();
+  $tabMenu
+    .find('.item[data-tab="' + $tabMenu.data("preview") + '"]')
+    .click(function() {
+      var $this = $(this);
+      $.post(
+        $this.data("url"),
+        {
+          _csrf: csrf,
+          mode: "gfm",
+          context: $this.data("context"),
+          text: $form
+            .find(
+              '.tab.segment[data-tab="' + $tabMenu.data("write") + '"] textarea'
+            )
+            .val()
+        },
+        function(data) {
+          var $previewPanel = $form.find(
+            '.tab.segment[data-tab="' + $tabMenu.data("preview") + '"]'
+          );
+          $previewPanel.html(data);
+          emojify.run($previewPanel[0]);
+          $("pre code", $previewPanel[0]).each(function(i, block) {
+            hljs.highlightBlock(block);
+          });
+        }
+      );
+    });
+
+  buttonsClickOnEnter();
+}
+
+var previewFileModes;
+
+function initEditPreviewTab($form) {
+  var $tabMenu = $form.find(".tabular.menu");
+  $tabMenu.find(".item").tab();
+  var $previewTab = $tabMenu.find(
+    '.item[data-tab="' + $tabMenu.data("preview") + '"]'
+  );
+  if ($previewTab.length) {
+    previewFileModes = $previewTab.data("preview-file-modes").split(",");
+    $previewTab.click(function() {
+      var $this = $(this);
+      $.post(
+        $this.data("url"),
+        {
+          _csrf: csrf,
+          context: $this.data("context"),
+          text: $form
+            .find(
+              '.tab.segment[data-tab="' + $tabMenu.data("write") + '"] textarea'
+            )
+            .val()
+        },
+        function(data) {
+          var $previewPanel = $form.find(
+            '.tab.segment[data-tab="' + $tabMenu.data("preview") + '"]'
+          );
+          $previewPanel.html(data);
+          emojify.run($previewPanel[0]);
+          $("pre code", $previewPanel[0]).each(function(i, block) {
+            hljs.highlightBlock(block);
+          });
+        }
+      );
+    });
+  }
+}
+
+function initEditDiffTab($form) {
+  var $tabMenu = $form.find(".tabular.menu");
+  $tabMenu.find(".item").tab();
+  $tabMenu
+    .find('.item[data-tab="' + $tabMenu.data("diff") + '"]')
+    .click(function() {
+      var $this = $(this);
+      $.post(
+        $this.data("url"),
+        {
+          _csrf: csrf,
+          content: $form
+            .find(
+              '.tab.segment[data-tab="' + $tabMenu.data("write") + '"] textarea'
+            )
+            .val()
+        },
+        function(data) {
+          var $diffPreviewPanel = $form.find(
+            '.tab.segment[data-tab="' + $tabMenu.data("diff") + '"]'
+          );
+          $diffPreviewPanel.html(data);
+          emojify.run($diffPreviewPanel[0]);
+        }
+      );
+    });
+}
+
+function initEditForm() {
+  if ($(".edit.form").length == 0) {
+    return;
+  }
+
+  initEditPreviewTab($(".edit.form"));
+  initEditDiffTab($(".edit.form"));
+}
+
+function initCommentForm() {
+  if ($(".comment.form").length == 0) {
+    return;
+  }
+
+  initCommentPreviewTab($(".comment.form"));
+
+  // Labels
+  var $list = $(".ui.labels.list");
+  var $noSelect = $list.find(".no-select");
+  var $labelMenu = $(".select-label .menu");
+  var hasLabelUpdateAction = $labelMenu.data("action") == "update";
+
+  function updateIssueMeta(url, action, id) {
+    $.post(url, {
+      _csrf: csrf,
+      action: action,
+      id: id
+    });
+  }
+
+  // Add &nbsp; to each unselected label to keep UI looks good.
+  // This should be added directly to HTML but somehow just get empty <span> on this page.
+  $labelMenu
+    .find(".item:not(.no-select) .octicon:not(.octicon-check)")
+    .each(function() {
+      $(this).html("&nbsp;");
+    });
+  $labelMenu.find(".item:not(.no-select)").click(function() {
+    if ($(this).hasClass("checked")) {
+      $(this).removeClass("checked");
+      $(this)
+        .find(".octicon")
+        .removeClass("octicon-check")
+        .html("&nbsp;");
+      if (hasLabelUpdateAction) {
+        updateIssueMeta(
+          $labelMenu.data("update-url"),
+          "detach",
+          $(this).data("id")
+        );
+      }
+    } else {
+      $(this).addClass("checked");
+      $(this)
+        .find(".octicon")
+        .addClass("octicon-check")
+        .html("");
+      if (hasLabelUpdateAction) {
+        updateIssueMeta(
+          $labelMenu.data("update-url"),
+          "attach",
+          $(this).data("id")
+        );
+      }
+    }
+
+    var labelIds = "";
+    $(this)
+      .parent()
+      .find(".item")
+      .each(function() {
+        if ($(this).hasClass("checked")) {
+          labelIds += $(this).data("id") + ",";
+          $($(this).data("id-selector")).removeClass("hide");
+        } else {
+          $($(this).data("id-selector")).addClass("hide");
+        }
+      });
+    if (labelIds.length == 0) {
+      $noSelect.removeClass("hide");
+    } else {
+      $noSelect.addClass("hide");
+    }
+    $(
+      $(this)
+        .parent()
+        .data("id")
+    ).val(labelIds);
+    return false;
+  });
+  $labelMenu.find(".no-select.item").click(function() {
+    if (hasLabelUpdateAction) {
+      updateIssueMeta($labelMenu.data("update-url"), "clear", "");
+    }
+
+    $(this)
+      .parent()
+      .find(".item")
+      .each(function() {
+        $(this).removeClass("checked");
+        $(this)
+          .find(".octicon")
+          .removeClass("octicon-check")
+          .html("&nbsp;");
+      });
+
+    $list.find(".item").each(function() {
+      $(this).addClass("hide");
+    });
+    $noSelect.removeClass("hide");
+    $(
+      $(this)
+        .parent()
+        .data("id")
+    ).val("");
+  });
+
+  function selectItem(select_id, input_id) {
+    var $menu = $(select_id + " .menu");
+    var $list = $(".ui" + select_id + ".list");
+    var hasUpdateAction = $menu.data("action") == "update";
+
+    $menu.find(".item:not(.no-select)").click(function() {
+      $(this)
+        .parent()
+        .find(".item")
+        .each(function() {
+          $(this).removeClass("selected active");
+        });
+
+      $(this).addClass("selected active");
+      if (hasUpdateAction) {
+        updateIssueMeta($menu.data("update-url"), "", $(this).data("id"));
+      }
+      switch (input_id) {
+        case "#milestone_id":
+          $list
+            .find(".selected")
+            .html(
+              '<a class="item" href=' +
+                $(this).data("href") +
+                ">" +
+                $(this).text() +
+                "</a>"
+            );
+          break;
+        case "#assignee_id":
+          $list
+            .find(".selected")
+            .html(
+              '<a class="item" href=' +
+                $(this).data("href") +
+                ">" +
+                '<img class="ui avatar image" src=' +
+                $(this).data("avatar") +
+                ">" +
+                $(this).text() +
+                "</a>"
+            );
+      }
+      $(".ui" + select_id + ".list .no-select").addClass("hide");
+      $(input_id).val($(this).data("id"));
+    });
+    $menu.find(".no-select.item").click(function() {
+      $(this)
+        .parent()
+        .find(".item:not(.no-select)")
+        .each(function() {
+          $(this).removeClass("selected active");
+        });
+
+      if (hasUpdateAction) {
+        updateIssueMeta($menu.data("update-url"), "", "");
+      }
+
+      $list.find(".selected").html("");
+      $list.find(".no-select").removeClass("hide");
+      $(input_id).val("");
+    });
+  }
+
+  // Milestone and assignee
+  selectItem(".select-milestone", "#milestone_id");
+  selectItem(".select-assignee", "#assignee_id");
+}
+
+function initRepository() {
+  if ($(".repository").length == 0) {
+    return;
+  }
+
+  function initFilterSearchDropdown(selector) {
+    var $dropdown = $(selector);
+    $dropdown.dropdown({
+      fullTextSearch: true,
+      onChange: function(text, value, $choice) {
+        window.location.href = $choice.data("url");
+        console.log($choice.data("url"));
+      },
+      message: { noResults: $dropdown.data("no-results") }
+    });
+  }
+
+  // File list and commits
+  if (
+    $(".repository.file.list").length > 0 ||
+    ".repository.commits".length > 0
+  ) {
+    initFilterSearchDropdown(".choose.reference .dropdown");
+
+    $(".reference.column").click(function() {
+      $(".choose.reference .scrolling.menu").css("display", "none");
+      $(".choose.reference .text").removeClass("black");
+      $($(this).data("target")).css("display", "block");
+      $(this)
+        .find(".text")
+        .addClass("black");
+      return false;
+    });
+  }
+
+  // Wiki
+  if ($(".repository.wiki.view").length > 0) {
+    initFilterSearchDropdown(".choose.page .dropdown");
+  }
+
+  // Options
+  if ($(".repository.settings.options").length > 0) {
+    $("#repo_name").keyup(function() {
+      var $prompt = $("#repo-name-change-prompt");
+      if (
+        $(this)
+          .val()
+          .toString()
+          .toLowerCase() !=
+        $(this)
+          .data("repo-name")
+          .toString()
+          .toLowerCase()
+      ) {
+        $prompt.show();
+      } else {
+        $prompt.hide();
+      }
+    });
+  }
+
+  // Branches
+  if ($(".repository.settings.branches").length > 0) {
+    initFilterSearchDropdown(".protected-branches .dropdown");
+    $(".enable-protection, .enable-whitelist").change(function() {
+      if (this.checked) {
+        $($(this).data("target")).removeClass("disabled");
+      } else {
+        $($(this).data("target")).addClass("disabled");
+      }
+    });
+  }
+
+  // Labels
+  if ($(".repository.labels").length > 0) {
+    // Create label
+    var $newLabelPanel = $(".new-label.segment");
+    $(".new-label.button").click(function() {
+      $newLabelPanel.show();
+    });
+    $(".new-label.segment .cancel").click(function() {
+      $newLabelPanel.hide();
+    });
+
+    $(".color-picker").each(function() {
+      $(this).minicolors();
+    });
+    $(".precolors .color").click(function() {
+      var color_hex = $(this).data("color-hex");
+      $(".color-picker").val(color_hex);
+      $(".minicolors-swatch-color").css("background-color", color_hex);
+    });
+    $(".edit-label-button").click(function() {
+      $("#label-modal-id").val($(this).data("id"));
+      $(".edit-label .new-label-input").val($(this).data("title"));
+      $(".edit-label .color-picker").val($(this).data("color"));
+      $(".minicolors-swatch-color").css(
+        "background-color",
+        $(this).data("color")
+      );
+      $(".edit-label.modal")
+        .modal({
+          onApprove: function() {
+            $(".edit-label.form").submit();
+          }
+        })
+        .modal("show");
+      return false;
+    });
+  }
+
+  // Milestones
+  if ($(".repository.milestones").length > 0) {
+  }
+  if ($(".repository.new.milestone").length > 0) {
+    var $datepicker = $(".milestone.datepicker");
+    $datepicker.datetimepicker({
+      lang: $datepicker.data("lang"),
+      inline: true,
+      timepicker: false,
+      startDate: $datepicker.data("start-date"),
+      formatDate: "Y-m-d",
+      onSelectDate: function(ct) {
+        $("#deadline").val(ct.dateFormat("Y-m-d"));
+      }
+    });
+    $("#clear-date").click(function() {
+      $("#deadline").val("");
+      return false;
+    });
+  }
+
+  // Issues
+  if ($(".repository.view.issue").length > 0) {
+    // Edit issue title
+    var $issueTitle = $("#issue-title");
+    var $editInput = $("#edit-title-input").find("input");
+    var editTitleToggle = function() {
+      $issueTitle.toggle();
+      $(".not-in-edit").toggle();
+      $("#edit-title-input").toggle();
+      $(".in-edit").toggle();
+      $editInput.focus();
+      return false;
+    };
+    $("#edit-title").click(editTitleToggle);
+    $("#cancel-edit-title").click(editTitleToggle);
+    $("#save-edit-title")
+      .click(editTitleToggle)
+      .click(function() {
+        if (
+          $editInput.val().length == 0 ||
+          $editInput.val() == $issueTitle.text()
+        ) {
+          $editInput.val($issueTitle.text());
+          return false;
+        }
+
+        $.post(
+          $(this).data("update-url"),
+          {
+            _csrf: csrf,
+            title: $editInput.val()
+          },
+          function(data) {
+            $editInput.val(data.title);
+            $issueTitle.text(data.title);
+          }
+        );
+        return false;
+      });
+
+    // Edit issue or comment content
+    $(".edit-content").click(function() {
+      var $segment = $(this)
+        .parent()
+        .parent()
+        .parent()
+        .next();
+      var $editContentZone = $segment.find(".edit-content-zone");
+      var $renderContent = $segment.find(".render-content");
+      var $rawContent = $segment.find(".raw-content");
+      var $textarea;
+
+      // Setup new form
+      if ($editContentZone.html().length == 0) {
+        $editContentZone.html($("#edit-content-form").html());
+        $textarea = $segment.find("textarea");
+
+        // Give new write/preview data-tab name to distinguish from others
+        var $editContentForm = $editContentZone.find(".ui.comment.form");
+        var $tabMenu = $editContentForm.find(".tabular.menu");
+        $tabMenu.attr("data-write", $editContentZone.data("write"));
+        $tabMenu.attr("data-preview", $editContentZone.data("preview"));
+        $tabMenu
+          .find(".write.item")
+          .attr("data-tab", $editContentZone.data("write"));
+        $tabMenu
+          .find(".preview.item")
+          .attr("data-tab", $editContentZone.data("preview"));
+        $editContentForm
+          .find(".write.segment")
+          .attr("data-tab", $editContentZone.data("write"));
+        $editContentForm
+          .find(".preview.segment")
+          .attr("data-tab", $editContentZone.data("preview"));
+
+        initCommentPreviewTab($editContentForm);
+
+        $editContentZone.find(".cancel.button").click(function() {
+          $renderContent.show();
+          $editContentZone.hide();
+        });
+        $editContentZone.find(".save.button").click(function() {
+          $renderContent.show();
+          $editContentZone.hide();
+
+          $.post(
+            $editContentZone.data("update-url"),
+            {
+              _csrf: csrf,
+              content: $textarea.val(),
+              context: $editContentZone.data("context")
+            },
+            function(data) {
+              if (data.length == 0) {
+                $renderContent.html($("#no-content").html());
+              } else {
+                $renderContent.html(data.content);
+                emojify.run($renderContent[0]);
+                $("pre code", $renderContent[0]).each(function(i, block) {
+                  hljs.highlightBlock(block);
+                });
+              }
+            }
+          );
+        });
+      } else {
+        $textarea = $segment.find("textarea");
+      }
+
+      // Show write/preview tab and copy raw content as needed
+      $editContentZone.show();
+      $renderContent.hide();
+      if ($textarea.val().length == 0) {
+        $textarea.val($rawContent.text());
+      }
+      $textarea.focus();
+      return false;
+    });
+
+    // Delete comment
+    $(".delete-comment").click(function() {
+      var $this = $(this);
+      if (confirm($this.data("locale"))) {
+        $.post($this.data("url"), {
+          _csrf: csrf
+        }).done(function() {
+          $("#" + $this.data("comment-id")).remove();
+        });
+      }
+      return false;
+    });
+
+    // Change status
+    var $statusButton = $("#status-button");
+    $("#comment-form .edit_area").keyup(function() {
+      if ($(this).val().length == 0) {
+        $statusButton.text($statusButton.data("status"));
+      } else {
+        $statusButton.text($statusButton.data("status-and-comment"));
+      }
+    });
+    $statusButton.click(function() {
+      $("#status").val($statusButton.data("status-val"));
+      $("#comment-form").submit();
+    });
+  }
+
+  // Diff
+  if ($(".repository.diff").length > 0) {
+    var $counter = $(".diff-counter");
+    if ($counter.length >= 1) {
+      $counter.each(function(i, item) {
+        var $item = $(item);
+        var addLine = $item.find("span[data-line].add").data("line");
+        var delLine = $item.find("span[data-line].del").data("line");
+        var addPercent =
+          (parseFloat(addLine) / (parseFloat(addLine) + parseFloat(delLine))) *
+          100;
+        $item.find(".bar .add").css("width", addPercent + "%");
+      });
+    }
+
+    $(".diff-file-box .lines-num").click(function() {
+      if ($(this).attr("id")) {
+        window.location.href = "#" + $(this).attr("id");
+      }
+    });
+
+    $(window)
+      .on("hashchange", function(e) {
+        $(".diff-file-box .lines-code.active").removeClass("active");
+        var m = window.location.hash.match(/^#diff-.+$/);
+        if (m) {
+          $(m[0])
+            .siblings(".lines-code")
+            .addClass("active");
+        }
+      })
+      .trigger("hashchange");
+  }
+
+  // Quick start and repository home
+  $("#repo-clone-ssh").click(function() {
+    $(".clone-url").text($(this).data("link"));
+    $("#repo-clone-url").val($(this).data("link"));
+    $(this).addClass("blue");
+    $("#repo-clone-https").removeClass("blue");
+    localStorage.setItem("repo-clone-protocol", "ssh");
+  });
+  $("#repo-clone-https").click(function() {
+    $(".clone-url").text($(this).data("link"));
+    $("#repo-clone-url").val($(this).data("link"));
+    $(this).addClass("blue");
+    $("#repo-clone-ssh").removeClass("blue");
+    localStorage.setItem("repo-clone-protocol", "https");
+  });
+  $("#repo-clone-url").click(function() {
+    $(this).select();
+  });
+
+  // Pull request
+  if ($(".repository.compare.pull").length > 0) {
+    initFilterSearchDropdown(".choose.branch .dropdown");
+  }
+  if ($(".repository.view.pull").length > 0) {
+    $(".comment.merge.box input[name=merge_style]").change(function() {
+      if ($(this).val() === "create_merge_commit") {
+        $(".commit.description.field").show();
+      } else {
+        $(".commit.description.field").hide();
+      }
+    });
+  }
+}
+
+function initWikiForm() {
+  var $editArea = $(".repository.wiki textarea#edit_area");
+  if ($editArea.length > 0) {
+    new SimpleMDE({
+      autoDownloadFontAwesome: false,
+      element: $editArea[0],
+      forceSync: true,
+      previewRender: function(plainText, preview) {
+        // Async method
+        setTimeout(function() {
+          // FIXME: still send render request when return back to edit mode
+          $.post(
+            $editArea.data("url"),
+            {
+              _csrf: csrf,
+              mode: "gfm",
+              context: $editArea.data("context"),
+              text: plainText
+            },
+            function(data) {
+              preview.innerHTML = '<div class="markdown">' + data + "</div>";
+              emojify.run($(".editor-preview")[0]);
+            }
+          );
+        }, 0);
+
+        return "Loading...";
+      },
+      renderingConfig: {
+        singleLineBreaks: false
+      },
+      indentWithTabs: false,
+      tabSize: 4,
+      spellChecker: false,
+      toolbar: [
+        "bold",
+        "italic",
+        "strikethrough",
+        "|",
+        "heading-1",
+        "heading-2",
+        "heading-3",
+        "heading-bigger",
+        "heading-smaller",
+        "|",
+        "code",
+        "quote",
+        "|",
+        "unordered-list",
+        "ordered-list",
+        "|",
+        "link",
+        "image",
+        "table",
+        "horizontal-rule",
+        "|",
+        "clean-block",
+        "preview",
+        "fullscreen"
+      ]
+    });
+  }
+}
+
+var simpleMDEditor;
+var codeMirrorEditor;
+
+// For IE
+String.prototype.endsWith = function(pattern) {
+  var d = this.length - pattern.length;
+  return d >= 0 && this.lastIndexOf(pattern) === d;
+};
+
+// Adding function to get the cursor position in a text field to jQuery object.
+(function($, undefined) {
+  $.fn.getCursorPosition = function() {
+    var el = $(this).get(0);
+    var pos = 0;
+    if ("selectionStart" in el) {
+      pos = el.selectionStart;
+    } else if ("selection" in document) {
+      el.focus();
+      var Sel = document.selection.createRange();
+      var SelLength = document.selection.createRange().text.length;
+      Sel.moveStart("character", -el.value.length);
+      pos = Sel.text.length - SelLength;
+    }
+    return pos;
+  };
+})(jQuery);
+
+function setSimpleMDE($editArea) {
+  if (codeMirrorEditor) {
+    codeMirrorEditor.toTextArea();
+    codeMirrorEditor = null;
+  }
+
+  if (simpleMDEditor) {
+    return true;
+  }
+
+  simpleMDEditor = new SimpleMDE({
+    autoDownloadFontAwesome: false,
+    element: $editArea[0],
+    forceSync: true,
+    renderingConfig: {
+      singleLineBreaks: false
+    },
+    indentWithTabs: false,
+    tabSize: 4,
+    spellChecker: false,
+    previewRender: function(plainText, preview) {
+      // Async method
+      setTimeout(function() {
+        // FIXME: still send render request when return back to edit mode
+        $.post(
+          $editArea.data("url"),
+          {
+            _csrf: csrf,
+            mode: "gfm",
+            context: $editArea.data("context"),
+            text: plainText
+          },
+          function(data) {
+            preview.innerHTML = '<div class="markdown">' + data + "</div>";
+            emojify.run($(".editor-preview")[0]);
+          }
+        );
+      }, 0);
+
+      return "Loading...";
+    },
+    toolbar: [
+      "bold",
+      "italic",
+      "strikethrough",
+      "|",
+      "heading-1",
+      "heading-2",
+      "heading-3",
+      "heading-bigger",
+      "heading-smaller",
+      "|",
+      "code",
+      "quote",
+      "|",
+      "unordered-list",
+      "ordered-list",
+      "|",
+      "link",
+      "image",
+      "table",
+      "horizontal-rule",
+      "|",
+      "clean-block"
+    ]
+  });
+
+  return true;
+}
+
+function setCodeMirror($editArea) {
+  if (simpleMDEditor) {
+    simpleMDEditor.toTextArea();
+    simpleMDEditor = null;
+  }
+
+  if (codeMirrorEditor) {
+    return true;
+  }
+
+  codeMirrorEditor = CodeMirror.fromTextArea($editArea[0], {
+    lineNumbers: true
+  });
+  codeMirrorEditor.on("change", function(cm, change) {
+    $editArea.val(cm.getValue());
+  });
+
+  return true;
+}
+
+function initEditor() {
+  $(".js-quick-pull-choice-option").change(function() {
+    if ($(this).val() == "commit-to-new-branch") {
+      $(".quick-pull-branch-name").show();
+      $(".quick-pull-branch-name input").prop("required", true);
+    } else {
+      $(".quick-pull-branch-name").hide();
+      $(".quick-pull-branch-name input").prop("required", false);
+    }
+  });
+
+  var $editFilename = $("#file-name");
+  $editFilename
+    .keyup(function(e) {
+      var $section = $(".breadcrumb span.section");
+      var $divider = $(".breadcrumb div.divider");
+      if (e.keyCode == 8) {
+        if ($(this).getCursorPosition() == 0) {
+          if ($section.length > 0) {
+            var value = $section
+              .last()
+              .find("a")
+              .text();
+            $(this).val(value + $(this).val());
+            $(this)[0].setSelectionRange(value.length, value.length);
+            $section.last().remove();
+            $divider.last().remove();
+          }
+        }
+      }
+      if (e.keyCode == 191) {
+        var parts = $(this)
+          .val()
+          .split("/");
+        for (var i = 0; i < parts.length; ++i) {
+          var value = parts[i];
+          if (i < parts.length - 1) {
+            if (value.length) {
+              $(
+                '<span class="section"><a href="#">' + value + "</a></span>"
+              ).insertBefore($(this));
+              $('<div class="divider"> / </div>').insertBefore($(this));
+            }
+          } else {
+            $(this).val(value);
+          }
+          $(this)[0].setSelectionRange(0, 0);
+        }
+      }
+      var parts = [];
+      $(".breadcrumb span.section").each(function(i, element) {
+        element = $(element);
+        if (element.find("a").length) {
+          parts.push(element.find("a").text());
+        } else {
+          parts.push(element.text());
+        }
+      });
+      if ($(this).val()) {
+        parts.push($(this).val());
+      }
+
+      var tree_path = parts.join("/");
+      $("#tree_path").val(tree_path);
+      $("#preview-tab").data(
+        "context",
+        $("#preview-tab").data("root-context") +
+          tree_path.substring(0, tree_path.lastIndexOf("/") + 1)
+      );
+    })
+    .trigger("keyup");
+
+  var $editArea = $(".repository.editor textarea#edit_area");
+  if (!$editArea.length) return;
+
+  var markdownFileExts = $editArea.data("markdown-file-exts").split(",");
+  var lineWrapExtensions = $editArea.data("line-wrap-extensions").split(",");
+
+  $editFilename
+    .on("keyup", function(e) {
+      var val = $editFilename.val(),
+        m,
+        mode,
+        spec,
+        extension,
+        extWithDot,
+        previewLink,
+        dataUrl,
+        apiCall;
+      extension = extWithDot = "";
+      if ((m = /.+\.([^.]+)$/.exec(val))) {
+        extension = m[1].toLowerCase();
+        extWithDot = "." + extension;
+      }
+
+      var info = CodeMirror.findModeByExtension(extension);
+      previewLink = $("a[data-tab=preview]");
+      if (info) {
+        mode = info.mode;
+        spec = info.mime;
+        apiCall = mode;
+      } else {
+        apiCall = extension;
+      }
+
+      if (
+        previewLink.length &&
+        apiCall &&
+        previewFileModes &&
+        previewFileModes.length &&
+        previewFileModes.indexOf(apiCall) >= 0
+      ) {
+        dataUrl = previewLink.data("url");
+        previewLink.data("url", dataUrl.replace(/(.*)\/.*/i, "$1/" + mode));
+        previewLink.show();
+      } else {
+        previewLink.hide();
+      }
+
+      // If this file is a Markdown extensions, we will load that editor and return
+      if (markdownFileExts.indexOf(extWithDot) >= 0) {
+        if (setSimpleMDE($editArea)) {
+          return;
+        }
+      }
+
+      // Else we are going to use CodeMirror
+      if (!codeMirrorEditor && !setCodeMirror($editArea)) {
+        return;
+      }
+
+      if (mode) {
+        codeMirrorEditor.setOption("mode", spec);
+        CodeMirror.autoLoadMode(codeMirrorEditor, mode);
+      }
+
+      if (lineWrapExtensions.indexOf(extWithDot) >= 0) {
+        codeMirrorEditor.setOption("lineWrapping", true);
+      } else {
+        codeMirrorEditor.setOption("lineWrapping", false);
+      }
+
+      // get the filename without any folder
+      var value = $editFilename.val();
+      if (value.length === 0) {
+        return;
+      }
+      value = value.split("/");
+      value = value[value.length - 1];
+
+      $.getJSON($editFilename.data("ec-url-prefix") + value, function(
+        editorconfig
+      ) {
+        if (editorconfig.indent_style === "tab") {
+          codeMirrorEditor.setOption("indentWithTabs", true);
+          codeMirrorEditor.setOption("extraKeys", {});
+        } else {
+          codeMirrorEditor.setOption("indentWithTabs", false);
+          // required because CodeMirror doesn't seems to use spaces correctly for {"indentWithTabs": false}:
+          // - https://github.com/codemirror/CodeMirror/issues/988
+          // - https://codemirror.net/doc/manual.html#keymaps
+          codeMirrorEditor.setOption("extraKeys", {
+            Tab: function(cm) {
+              var spaces = Array(parseInt(cm.getOption("indentUnit")) + 1).join(
+                " "
+              );
+              cm.replaceSelection(spaces);
+            }
+          });
+        }
+        codeMirrorEditor.setOption("indentUnit", editorconfig.indent_size || 4);
+        codeMirrorEditor.setOption("tabSize", editorconfig.tab_width || 4);
+      });
+    })
+    .trigger("keyup");
+}
+
+function initOrganization() {
+  if ($(".organization").length == 0) {
+    return;
+  }
+
+  // Options
+  if ($(".organization.settings.options").length > 0) {
+    $("#org_name").keyup(function() {
+      var $prompt = $("#org-name-change-prompt");
+      if (
+        $(this)
+          .val()
+          .toString()
+          .toLowerCase() !=
+        $(this)
+          .data("org-name")
+          .toString()
+          .toLowerCase()
+      ) {
+        $prompt.show();
+      } else {
+        $prompt.hide();
+      }
+    });
+  }
+}
+
+function initAdmin() {
+  if ($(".admin").length == 0) {
+    return;
+  }
+
+  // New user
+  if ($(".admin.new.user").length > 0 || $(".admin.edit.user").length > 0) {
+    $("#login_type").change(function() {
+      if (
+        $(this)
+          .val()
+          .substring(0, 1) == "0"
+      ) {
+        $("#login_name").removeAttr("required");
+        $(".non-local").hide();
+        $(".local").show();
+        $("#user_name").focus();
+
+        if ($(this).data("password") == "required") {
+          $("#password").attr("required", "required");
+        }
+      } else {
+        $("#login_name").attr("required", "required");
+        $(".non-local").show();
+        $(".local").hide();
+        $("#login_name").focus();
+
+        $("#password").removeAttr("required");
+      }
+    });
+  }
+
+  function onSecurityProtocolChange() {
+    if ($("#security_protocol").val() > 0) {
+      $(".has-tls").show();
+    } else {
+      $(".has-tls").hide();
+    }
+  }
+
+  // New authentication
+  if ($(".admin.new.authentication").length > 0) {
+    $("#auth_type").change(function() {
+      $(".ldap").hide();
+      $(".dldap").hide();
+      $(".smtp").hide();
+      $(".pam").hide();
+      $(".github").hide();
+      $(".has-tls").hide();
+
+      var authType = $(this).val();
+      switch (authType) {
+        case "2": // LDAP
+          $(".ldap").show();
+          break;
+        case "3": // SMTP
+          $(".smtp").show();
+          $(".has-tls").show();
+          break;
+        case "4": // PAM
+          $(".pam").show();
+          break;
+        case "5": // LDAP
+          $(".dldap").show();
+          break;
+        case "6": //GITHUB
+          $(".github").show();
+          $(".has-tls").show();
+          break;
+      }
+
+      if (authType == "2" || authType == "5") {
+        onSecurityProtocolChange();
+      }
+    });
+    $("#security_protocol").change(onSecurityProtocolChange);
+  }
+  // Edit authentication
+  if ($(".admin.edit.authentication").length > 0) {
+    var authType = $("#auth_type").val();
+    if (authType == "2" || authType == "5") {
+      $("#security_protocol").change(onSecurityProtocolChange);
+    }
+  }
+
+  // Notice
+  if ($(".admin.notice")) {
+    var $detailModal = $("#detail-modal");
+
+    // Attach view detail modals
+    $(".view-detail").click(function() {
+      $detailModal.find(".content p").text($(this).data("content"));
+      $detailModal.modal("show");
+      return false;
+    });
+
+    // Select actions
+    var $checkboxes = $(".select.table .ui.checkbox");
+    $(".select.action").click(function() {
+      switch ($(this).data("action")) {
+        case "select-all":
+          $checkboxes.checkbox("check");
+          break;
+        case "deselect-all":
+          $checkboxes.checkbox("uncheck");
+          break;
+        case "inverse":
+          $checkboxes.checkbox("toggle");
+          break;
+      }
+    });
+    $("#delete-selection").click(function() {
+      var $this = $(this);
+      $this.addClass("loading disabled");
+      var ids = [];
+      $checkboxes.each(function() {
+        if ($(this).checkbox("is checked")) {
+          ids.push($(this).data("id"));
+        }
+      });
+      $.post($this.data("link"), {
+        _csrf: csrf,
+        ids: ids
+      }).done(function() {
+        window.location.href = $this.data("redirect");
+      });
+    });
+  }
+}
+
+function buttonsClickOnEnter() {
+  $(".ui.button").keypress(function(e) {
+    if (e.keyCode == 13 || e.keyCode == 32)
+      // enter key or space bar
+      $(this).click();
+  });
+}
+
+function hideWhenLostFocus(body, parent) {
+  $(document).click(function(e) {
+    var target = e.target;
+    if (
+      !$(target).is(body) &&
+      !$(target)
+        .parents()
+        .is(parent)
+    ) {
+      $(body).hide();
+    }
+  });
+}
+
+function searchUsers() {
+  if (!$("#search-user-box .results").length) {
+    return;
+  }
+
+  var $searchUserBox = $("#search-user-box");
+  var $results = $searchUserBox.find(".results");
+  $searchUserBox.keyup(function() {
+    var $this = $(this);
+    var keyword = $this.find("input").val();
+    if (keyword.length < 2) {
+      $results.hide();
+      return;
+    }
+
+    $.ajax({
+      url: suburl + "/api/v1/users/search?q=" + keyword,
+      dataType: "json",
+      success: function(response) {
+        var notEmpty = function(str) {
+          return str && str.length > 0;
+        };
+
+        $results.html("");
+
+        if (response.ok && response.data.length) {
+          var html = "";
+          $.each(response.data, function(i, item) {
+            html +=
+              '<div class="item"><img class="ui avatar image" src="' +
+              item.avatar_url +
+              '"><span class="username">' +
+              item.username +
+              "</span>";
+            if (notEmpty(item.full_name)) {
+              html += " (" + item.full_name + ")";
+            }
+            html += "</div>";
+          });
+          $results.html(html);
+          $this.find(".results .item").click(function() {
+            $this.find("input").val(
+              $(this)
+                .find(".username")
+                .text()
+            );
+            $results.hide();
+          });
+          $results.show();
+        } else {
+          $results.hide();
+        }
+      }
+    });
+  });
+  $searchUserBox.find("input").focus(function() {
+    $searchUserBox.keyup();
+  });
+  hideWhenLostFocus("#search-user-box .results", "#search-user-box");
+}
+
+// FIXME: merge common parts in two functions
+function searchRepositories() {
+  if (!$("#search-repo-box .results").length) {
+    return;
+  }
+
+  var $searchRepoBox = $("#search-repo-box");
+  var $results = $searchRepoBox.find(".results");
+  $searchRepoBox.keyup(function() {
+    var $this = $(this);
+    var keyword = $this.find("input").val();
+    if (keyword.length < 2) {
+      $results.hide();
+      return;
+    }
+
+    $.ajax({
+      url:
+        suburl +
+        "/api/v1/repos/search?q=" +
+        keyword +
+        "&uid=" +
+        $searchRepoBox.data("uid"),
+      dataType: "json",
+      success: function(response) {
+        var notEmpty = function(str) {
+          return str && str.length > 0;
+        };
+
+        $results.html("");
+
+        if (response.ok && response.data.length) {
+          var html = "";
+          $.each(response.data, function(i, item) {
+            html +=
+              '<div class="item"><i class="octicon octicon-repo"></i> <span class="fullname">' +
+              item.full_name +
+              "</span></div>";
+          });
+          $results.html(html);
+          $this.find(".results .item").click(function() {
+            $this.find("input").val(
+              $(this)
+                .find(".fullname")
+                .text()
+                .split("/")[1]
+            );
+            $results.hide();
+          });
+          $results.show();
+        } else {
+          $results.hide();
+        }
+      }
+    });
+  });
+  $searchRepoBox.find("input").focus(function() {
+    $searchRepoBox.keyup();
+  });
+  hideWhenLostFocus("#search-repo-box .results", "#search-repo-box");
+}
+
+function initCodeView() {
+  if ($(".code-view .linenums").length > 0) {
+    $(document).on("click", ".lines-num span", function(e) {
+      var $select = $(this);
+      var $list = $select
+        .parent()
+        .siblings(".lines-code")
+        .find("ol.linenums > li");
+      selectRange(
+        $list,
+        $list.filter("[rel=" + $select.attr("id") + "]"),
+        e.shiftKey ? $list.filter(".active").eq(0) : null
+      );
+      deSelect();
+    });
+
+    $(window)
+      .on("hashchange", function(e) {
+        var m = window.location.hash.match(/^#(L\d+)\-(L\d+)$/);
+        var $list = $(".code-view ol.linenums > li");
+        var $first;
+        if (m) {
+          $first = $list.filter("." + m[1]);
+          selectRange($list, $first, $list.filter("." + m[2]));
+          $("html, body").scrollTop($first.offset().top - 200);
+          return;
+        }
+        m = window.location.hash.match(/^#(L\d+)$/);
+        if (m) {
+          $first = $list.filter("." + m[1]);
+          selectRange($list, $first);
+          $("html, body").scrollTop($first.offset().top - 200);
+        }
+      })
+      .trigger("hashchange");
+  }
+}
+
+function initUserSettings() {
+  console.log("initUserSettings");
+
+  // Options
+  if ($(".user.settings.profile").length > 0) {
+    $("#username").keyup(function() {
+      var $prompt = $("#name-change-prompt");
+      if (
+        $(this)
+          .val()
+          .toString()
+          .toLowerCase() !=
+        $(this)
+          .data("name")
+          .toString()
+          .toLowerCase()
+      ) {
+        $prompt.show();
+      } else {
+        $prompt.hide();
+      }
+    });
+  }
+}
+
+function initRepositoryCollaboration() {
+  console.log("initRepositoryCollaboration");
+
+  // Change collaborator access mode
+  $(".access-mode.menu .item").click(function() {
+    var $menu = $(this).parent();
+    $.post($menu.data("url"), {
+      _csrf: csrf,
+      uid: $menu.data("uid"),
+      mode: $(this).data("value")
+    });
+  });
+}
+
+function initWebhookSettings() {
+  $(".events.checkbox input").change(function() {
+    if ($(this).is(":checked")) {
+      $(".events.fields").show();
+    }
+  });
+  $(".non-events.checkbox input").change(function() {
+    if ($(this).is(":checked")) {
+      $(".events.fields").hide();
+    }
+  });
+
+  // Highlight payload on first click
+  $(".hook.history.list .toggle.button").click(function() {
+    $($(this).data("target") + " .nohighlight").each(function() {
+      var $this = $(this);
+      $this.removeClass("nohighlight");
+      setTimeout(function() {
+        hljs.highlightBlock($this[0]);
+      }, 500);
+    });
+  });
+
+  // Trigger delivery
+  $(".delivery.button, .redelivery.button").click(function() {
+    var $this = $(this);
+    $this.addClass("loading disabled");
+    $.post($this.data("link"), {
+      _csrf: csrf
+    }).done(
+      setTimeout(function() {
+        window.location.href = $this.data("redirect");
+      }, 5000)
+    );
+  });
+}
+
+$(document).ready(function() {
+  csrf = $("meta[name=_csrf]").attr("content");
+  suburl = $("meta[name=_suburl]").attr("content");
+
+  // Set cursor to the end of autofocus input string
+  $("input[autofocus]").each(function() {
+    $(this).val($(this).val());
+  });
+
+  // Show exact time
+  $(".time-since").each(function() {
+    $(this)
+      .addClass("poping up")
+      .attr("data-content", $(this).attr("title"))
+      .attr("data-variation", "inverted tiny")
+      .attr("title", "");
+  });
+
+  // Semantic UI modules.
+  $(".ui.dropdown").dropdown({
+    forceSelection: false
+  });
+  $(".jump.dropdown").dropdown({
+    action: "select",
+    onShow: function() {
+      $(".poping.up").popup("hide");
+    }
+  });
+  $(".slide.up.dropdown").dropdown({
+    transition: "slide up"
+  });
+  $(".upward.dropdown").dropdown({
+    direction: "upward"
+  });
+  $(".ui.accordion").accordion();
+  $(".ui.checkbox").checkbox();
+  $(".ui.progress").progress({
+    showActivity: false
+  });
+  $(".poping.up").popup();
+  $(".top.menu .poping.up").popup({
+    onShow: function() {
+      if ($(".top.menu .menu.transition").hasClass("visible")) {
+        return false;
+      }
+    }
+  });
+  $(".tabular.menu .item").tab();
+  $(".tabable.menu .item").tab();
+
+  $(".toggle.button").click(function() {
+    $($(this).data("target")).slideToggle(100);
+  });
+
+  // Dropzone
+  var $dropzone = $("#dropzone");
+  if ($dropzone.length > 0) {
+    var filenameDict = {};
+    $dropzone.dropzone({
+      url: $dropzone.data("upload-url"),
+      headers: { "X-CSRF-Token": csrf },
+      maxFiles: $dropzone.data("max-file"),
+      maxFilesize: $dropzone.data("max-size"),
+      acceptedFiles:
+        $dropzone.data("accepts") === "*/*" ? null : $dropzone.data("accepts"),
+      addRemoveLinks: true,
+      dictDefaultMessage: $dropzone.data("default-message"),
+      dictInvalidFileType: $dropzone.data("invalid-input-type"),
+      dictFileTooBig: $dropzone.data("file-too-big"),
+      dictRemoveFile: $dropzone.data("remove-file"),
+      init: function() {
+        this.on("success", function(file, data) {
+          filenameDict[file.name] = data.uuid;
+          var input = $(
+            '<input id="' + data.uuid + '" name="files" type="hidden">'
+          ).val(data.uuid);
+          $(".files").append(input);
+        });
+        this.on("removedfile", function(file) {
+          if (file.name in filenameDict) {
+            $("#" + filenameDict[file.name]).remove();
+          }
+          if ($dropzone.data("remove-url") && $dropzone.data("csrf")) {
+            $.post($dropzone.data("remove-url"), {
+              file: filenameDict[file.name],
+              _csrf: $dropzone.data("csrf")
+            });
+          }
+        });
+      }
+    });
+  }
+
+  // Emojify
+  emojify.setConfig({
+    img_dir: suburl + "/img/emoji",
+    ignore_emoticons: true
+  });
+  var hasEmoji = document.getElementsByClassName("has-emoji");
+  for (var i = 0; i < hasEmoji.length; i++) {
+    emojify.run(hasEmoji[i]);
+  }
+
+  // Clipboard JS
+  var clipboard = new ClipboardJS(".clipboard");
+  clipboard.on("success", function(e) {
+    e.clearSelection();
+
+    $("#" + e.trigger.getAttribute("id")).popup("destroy");
+    e.trigger.setAttribute(
+      "data-content",
+      e.trigger.getAttribute("data-success")
+    );
+    $("#" + e.trigger.getAttribute("id")).popup("show");
+    e.trigger.setAttribute(
+      "data-content",
+      e.trigger.getAttribute("data-original")
+    );
+  });
+
+  clipboard.on("error", function(e) {
+    $("#" + e.trigger.getAttribute("id")).popup("destroy");
+    e.trigger.setAttribute(
+      "data-content",
+      e.trigger.getAttribute("data-error")
+    );
+    $("#" + e.trigger.getAttribute("id")).popup("show");
+    e.trigger.setAttribute(
+      "data-content",
+      e.trigger.getAttribute("data-original")
+    );
+  });
+
+  // Autosize
+  if ($("#description.autosize").length > 0) {
+    autosize($("#description"));
+    showMessageMaxLength(512, "description", "descLength");
+  }
+
+  // AJAX load buttons
+  $(".ajax-load-button").click(function() {
+    var $this = $(this);
+    $this.addClass("disabled");
+
+    $.ajax({
+      url: $this.data("url"),
+      headers: {
+        "X-AJAX": "true"
+      }
+    }).done(function(data, status, request) {
+      $(data).insertBefore($this);
+
+      // Update new URL or remove self if no more feeds
+      var url = request.getResponseHeader("X-AJAX-URL");
+      if (url) {
+        $this.data("url", url);
+        $this.removeClass("disabled");
+      } else {
+        $this.remove();
+      }
+    });
+  });
+
+  // Helpers
+  $(".delete-button").click(function() {
+    var $this = $(this);
+    $(".delete.modal")
+      .modal({
+        closable: false,
+        onApprove: function() {
+          if ($this.data("type") == "form") {
+            $($this.data("form")).submit();
+            return;
+          }
+
+          $.post($this.data("url"), {
+            _csrf: csrf,
+            id: $this.data("id")
+          }).done(function(data) {
+            window.location.href = data.redirect;
+          });
+        }
+      })
+      .modal("show");
+    return false;
+  });
+  $(".show-panel.button").click(function() {
+    $($(this).data("panel")).show();
+  });
+  $(".show-modal.button").click(function() {
+    $($(this).data("modal")).modal("show");
+  });
+  $(".delete-post.button").click(function() {
+    var $this = $(this);
+    $.post($this.data("request-url"), {
+      _csrf: csrf
+    }).done(function() {
+      window.location.href = $this.data("done-url");
+    });
+  });
+  // To make arbitrary form element to behave like a submit button
+  $(".submit-button").click(function() {
+    $($(this).data("form")).submit();
+  });
+
+  // Check or select on option to enable/disable target region
+  $(".enable-system").change(function() {
+    if (this.checked) {
+      $($(this).data("target")).removeClass("disabled");
+    } else {
+      $($(this).data("target")).addClass("disabled");
+      $($(this).data("uncheck")).prop("checked", false);
+    }
+  });
+  $(".enable-system-radio").change(function() {
+    $($(this).data("enable")).removeClass("disabled");
+    $($(this).data("disable")).addClass("disabled");
+    $($(this).data("uncheck")).prop("checked", false);
+  });
+
+  // Set anchor.
+  $(".markdown").each(function() {
+    var headers = {};
+    $(this)
+      .find("h1, h2, h3, h4, h5, h6")
+      .each(function() {
+        var node = $(this);
+        var val = encodeURIComponent(
+          node
+            .text()
+            .toLowerCase()
+            .replace(/[^\u00C0-\u1FFF\u2C00-\uD7FF\w\- ]/g, "")
+            .replace(/[ ]/g, "-")
+        );
+        var name = val;
+        if (headers[val] > 0) {
+          name = val + "-" + headers[val];
+        }
+        if (headers[val] == undefined) {
+          headers[val] = 1;
+        } else {
+          headers[val] += 1;
+        }
+        node = node.wrap('<div id="' + name + '" class="anchor-wrap" ></div>');
+        node.append(
+          '<a class="anchor" href="#' +
+            name +
+            '"><span class="octicon octicon-link"></span></a>'
+        );
+      });
+  });
+
+  buttonsClickOnEnter();
+  searchUsers();
+  searchRepositories();
+
+  initCommentForm();
+  initRepository();
+  initWikiForm();
+  initEditForm();
+  initEditor();
+  initOrganization();
+  initAdmin();
+  initCodeView();
+
+  // Repo clone url.
+  if ($("#repo-clone-url").length > 0) {
+    switch (localStorage.getItem("repo-clone-protocol")) {
+      case "ssh":
+        if ($("#repo-clone-ssh").click().length === 0) {
+          $("#repo-clone-https").click();
+        }
+        break;
+      default:
+        $("#repo-clone-https").click();
+        break;
+    }
+  }
+
+  var routes = {
+    "div.user.settings": initUserSettings,
+    "div.repository.settings.collaboration": initRepositoryCollaboration,
+    "div.webhook.settings": initWebhookSettings
+  };
+
+  var selector;
+  for (selector in routes) {
+    if ($(selector).length > 0) {
+      routes[selector]();
+      break;
+    }
+  }
+});
+
+function changeHash(hash) {
+  if (history.pushState) {
+    history.pushState(null, null, hash);
+  } else {
+    location.hash = hash;
+  }
+}
+
+function deSelect() {
+  if (window.getSelection) {
+    window.getSelection().removeAllRanges();
+  } else {
+    document.selection.empty();
+  }
+}
+
+function selectRange($list, $select, $from) {
+  $list.removeClass("active");
+  if ($from) {
+    var a = parseInt($select.attr("rel").substr(1));
+    var b = parseInt($from.attr("rel").substr(1));
+    var c;
+    if (a != b) {
+      if (a > b) {
+        c = a;
+        a = b;
+        b = c;
+      }
+      var classes = [];
+      for (var i = a; i <= b; i++) {
+        classes.push(".L" + i);
+      }
+      $list.filter(classes.join(",")).addClass("active");
+      changeHash("#L" + a + "-" + "L" + b);
+      return;
+    }
+  }
+  $select.addClass("active");
+  changeHash("#" + $select.attr("rel"));
+}
+
+$(function() {
+  if ($(".user.signin").length > 0) return;
+  $("form").areYouSure();
+});
+
+// getByteLen counts bytes in a string's UTF-8 representation.
+function getByteLen(normalVal) {
+  // Force string type
+  normalVal = String(normalVal);
+
+  var byteLen = 0;
+  for (var i = 0; i < normalVal.length; i++) {
+    var c = normalVal.charCodeAt(i);
+    byteLen +=
+      c < 1 << 7
+        ? 1
+        : c < 1 << 11
+        ? 2
+        : c < 1 << 16
+        ? 3
+        : c < 1 << 21
+        ? 4
+        : c < 1 << 26
+        ? 5
+        : c < 1 << 31
+        ? 6
+        : Number.NaN;
+  }
+  return byteLen;
+}
+
+function showMessageMaxLength(maxLen, textElemId, counterId) {
+  var $msg = $("#" + textElemId);
+  $("#" + counterId).html(maxLen - getByteLen($msg.val()));
+
+  var onMessageKey = function(e) {
+    var $msg = $(this);
+    var text = $msg.val();
+    var len = getByteLen(text);
+    var remainder = maxLen - len;
+
+    if (len >= maxLen) {
+      $msg.val($msg.val().substr(0, maxLen));
+      remainder = 0;
+    }
+
+    $("#" + counterId).html(remainder);
+  };
+
+  $msg.keyup(onMessageKey).keydown(onMessageKey);
+}
+           20220202182137-8lP   http://172.31.54.141:30917/js/gogs.js?v=cefbaa08d92cdb2b888f5ec913dfe38e5027b20a   ”∫  "use strict";
+
+var csrf;
+var suburl;
+
+function initCommentPreviewTab($form) {
+  var $tabMenu = $form.find(".tabular.menu");
+  $tabMenu.find(".item").tab();
+  $tabMenu
+    .find('.item[data-tab="' + $tabMenu.data("preview") + '"]')
+    .click(function() {
+      var $this = $(this);
+      $.post(
+        $this.data("url"),
+        {
+          _csrf: csrf,
+          mode: "gfm",
+          context: $this.data("context"),
+          text: $form
+            .find(
+              '.tab.segment[data-tab="' + $tabMenu.data("write") + '"] textarea'
+            )
+            .val()
+        },
+        function(data) {
+          var $previewPanel = $form.find(
+            '.tab.segment[data-tab="' + $tabMenu.data("preview") + '"]'
+          );
+          $previewPanel.html(data);
+          emojify.run($previewPanel[0]);
+          $("pre code", $previewPanel[0]).each(function(i, block) {
+            hljs.highlightBlock(block);
+          });
+        }
+      );
+    });
+
+  buttonsClickOnEnter();
+}
+
+var previewFileModes;
+
+function initEditPreviewTab($form) {
+  var $tabMenu = $form.find(".tabular.menu");
+  $tabMenu.find(".item").tab();
+  var $previewTab = $tabMenu.find(
+    '.item[data-tab="' + $tabMenu.data("preview") + '"]'
+  );
+  if ($previewTab.length) {
+    previewFileModes = $previewTab.data("preview-file-modes").split(",");
+    $previewTab.click(function() {
+      var $this = $(this);
+      $.post(
+        $this.data("url"),
+        {
+          _csrf: csrf,
+          context: $this.data("context"),
+          text: $form
+            .find(
+              '.tab.segment[data-tab="' + $tabMenu.data("write") + '"] textarea'
+            )
+            .val()
+        },
+        function(data) {
+          var $previewPanel = $form.find(
+            '.tab.segment[data-tab="' + $tabMenu.data("preview") + '"]'
+          );
+          $previewPanel.html(data);
+          emojify.run($previewPanel[0]);
+          $("pre code", $previewPanel[0]).each(function(i, block) {
+            hljs.highlightBlock(block);
+          });
+        }
+      );
+    });
+  }
+}
+
+function initEditDiffTab($form) {
+  var $tabMenu = $form.find(".tabular.menu");
+  $tabMenu.find(".item").tab();
+  $tabMenu
+    .find('.item[data-tab="' + $tabMenu.data("diff") + '"]')
+    .click(function() {
+      var $this = $(this);
+      $.post(
+        $this.data("url"),
+        {
+          _csrf: csrf,
+          content: $form
+            .find(
+              '.tab.segment[data-tab="' + $tabMenu.data("write") + '"] textarea'
+            )
+            .val()
+        },
+        function(data) {
+          var $diffPreviewPanel = $form.find(
+            '.tab.segment[data-tab="' + $tabMenu.data("diff") + '"]'
+          );
+          $diffPreviewPanel.html(data);
+          emojify.run($diffPreviewPanel[0]);
+        }
+      );
+    });
+}
+
+function initEditForm() {
+  if ($(".edit.form").length == 0) {
+    return;
+  }
+
+  initEditPreviewTab($(".edit.form"));
+  initEditDiffTab($(".edit.form"));
+}
+
+function initCommentForm() {
+  if ($(".comment.form").length == 0) {
+    return;
+  }
+
+  initCommentPreviewTab($(".comment.form"));
+
+  // Labels
+  var $list = $(".ui.labels.list");
+  var $noSelect = $list.find(".no-select");
+  var $labelMenu = $(".select-label .menu");
+  var hasLabelUpdateAction = $labelMenu.data("action") == "update";
+
+  function updateIssueMeta(url, action, id) {
+    $.post(url, {
+      _csrf: csrf,
+      action: action,
+      id: id
+    });
+  }
+
+  // Add &nbsp; to each unselected label to keep UI looks good.
+  // This should be added directly to HTML but somehow just get empty <span> on this page.
+  $labelMenu
+    .find(".item:not(.no-select) .octicon:not(.octicon-check)")
+    .each(function() {
+      $(this).html("&nbsp;");
+    });
+  $labelMenu.find(".item:not(.no-select)").click(function() {
+    if ($(this).hasClass("checked")) {
+      $(this).removeClass("checked");
+      $(this)
+        .find(".octicon")
+        .removeClass("octicon-check")
+        .html("&nbsp;");
+      if (hasLabelUpdateAction) {
+        updateIssueMeta(
+          $labelMenu.data("update-url"),
+          "detach",
+          $(this).data("id")
+        );
+      }
+    } else {
+      $(this).addClass("checked");
+      $(this)
+        .find(".octicon")
+        .addClass("octicon-check")
+        .html("");
+      if (hasLabelUpdateAction) {
+        updateIssueMeta(
+          $labelMenu.data("update-url"),
+          "attach",
+          $(this).data("id")
+        );
+      }
+    }
+
+    var labelIds = "";
+    $(this)
+      .parent()
+      .find(".item")
+      .each(function() {
+        if ($(this).hasClass("checked")) {
+          labelIds += $(this).data("id") + ",";
+          $($(this).data("id-selector")).removeClass("hide");
+        } else {
+          $($(this).data("id-selector")).addClass("hide");
+        }
+      });
+    if (labelIds.length == 0) {
+      $noSelect.removeClass("hide");
+    } else {
+      $noSelect.addClass("hide");
+    }
+    $(
+      $(this)
+        .parent()
+        .data("id")
+    ).val(labelIds);
+    return false;
+  });
+  $labelMenu.find(".no-select.item").click(function() {
+    if (hasLabelUpdateAction) {
+      updateIssueMeta($labelMenu.data("update-url"), "clear", "");
+    }
+
+    $(this)
+      .parent()
+      .find(".item")
+      .each(function() {
+        $(this).removeClass("checked");
+        $(this)
+          .find(".octicon")
+          .removeClass("octicon-check")
+          .html("&nbsp;");
+      });
+
+    $list.find(".item").each(function() {
+      $(this).addClass("hide");
+    });
+    $noSelect.removeClass("hide");
+    $(
+      $(this)
+        .parent()
+        .data("id")
+    ).val("");
+  });
+
+  function selectItem(select_id, input_id) {
+    var $menu = $(select_id + " .menu");
+    var $list = $(".ui" + select_id + ".list");
+    var hasUpdateAction = $menu.data("action") == "update";
+
+    $menu.find(".item:not(.no-select)").click(function() {
+      $(this)
+        .parent()
+        .find(".item")
+        .each(function() {
+          $(this).removeClass("selected active");
+        });
+
+      $(this).addClass("selected active");
+      if (hasUpdateAction) {
+        updateIssueMeta($menu.data("update-url"), "", $(this).data("id"));
+      }
+      switch (input_id) {
+        case "#milestone_id":
+          $list
+            .find(".selected")
+            .html(
+              '<a class="item" href=' +
+                $(this).data("href") +
+                ">" +
+                $(this).text() +
+                "</a>"
+            );
+          break;
+        case "#assignee_id":
+          $list
+            .find(".selected")
+            .html(
+              '<a class="item" href=' +
+                $(this).data("href") +
+                ">" +
+                '<img class="ui avatar image" src=' +
+                $(this).data("avatar") +
+                ">" +
+                $(this).text() +
+                "</a>"
+            );
+      }
+      $(".ui" + select_id + ".list .no-select").addClass("hide");
+      $(input_id).val($(this).data("id"));
+    });
+    $menu.find(".no-select.item").click(function() {
+      $(this)
+        .parent()
+        .find(".item:not(.no-select)")
+        .each(function() {
+          $(this).removeClass("selected active");
+        });
+
+      if (hasUpdateAction) {
+        updateIssueMeta($menu.data("update-url"), "", "");
+      }
+
+      $list.find(".selected").html("");
+      $list.find(".no-select").removeClass("hide");
+      $(input_id).val("");
+    });
+  }
+
+  // Milestone and assignee
+  selectItem(".select-milestone", "#milestone_id");
+  selectItem(".select-assignee", "#assignee_id");
+}
+
+function initRepository() {
+  if ($(".repository").length == 0) {
+    return;
+  }
+
+  function initFilterSearchDropdown(selector) {
+    var $dropdown = $(selector);
+    $dropdown.dropdown({
+      fullTextSearch: true,
+      onChange: function(text, value, $choice) {
+        window.location.href = $choice.data("url");
+        console.log($choice.data("url"));
+      },
+      message: { noResults: $dropdown.data("no-results") }
+    });
+  }
+
+  // File list and commits
+  if (
+    $(".repository.file.list").length > 0 ||
+    ".repository.commits".length > 0
+  ) {
+    initFilterSearchDropdown(".choose.reference .dropdown");
+
+    $(".reference.column").click(function() {
+      $(".choose.reference .scrolling.menu").css("display", "none");
+      $(".choose.reference .text").removeClass("black");
+      $($(this).data("target")).css("display", "block");
+      $(this)
+        .find(".text")
+        .addClass("black");
+      return false;
+    });
+  }
+
+  // Wiki
+  if ($(".repository.wiki.view").length > 0) {
+    initFilterSearchDropdown(".choose.page .dropdown");
+  }
+
+  // Options
+  if ($(".repository.settings.options").length > 0) {
+    $("#repo_name").keyup(function() {
+      var $prompt = $("#repo-name-change-prompt");
+      if (
+        $(this)
+          .val()
+          .toString()
+          .toLowerCase() !=
+        $(this)
+          .data("repo-name")
+          .toString()
+          .toLowerCase()
+      ) {
+        $prompt.show();
+      } else {
+        $prompt.hide();
+      }
+    });
+  }
+
+  // Branches
+  if ($(".repository.settings.branches").length > 0) {
+    initFilterSearchDropdown(".protected-branches .dropdown");
+    $(".enable-protection, .enable-whitelist").change(function() {
+      if (this.checked) {
+        $($(this).data("target")).removeClass("disabled");
+      } else {
+        $($(this).data("target")).addClass("disabled");
+      }
+    });
+  }
+
+  // Labels
+  if ($(".repository.labels").length > 0) {
+    // Create label
+    var $newLabelPanel = $(".new-label.segment");
+    $(".new-label.button").click(function() {
+      $newLabelPanel.show();
+    });
+    $(".new-label.segment .cancel").click(function() {
+      $newLabelPanel.hide();
+    });
+
+    $(".color-picker").each(function() {
+      $(this).minicolors();
+    });
+    $(".precolors .color").click(function() {
+      var color_hex = $(this).data("color-hex");
+      $(".color-picker").val(color_hex);
+      $(".minicolors-swatch-color").css("background-color", color_hex);
+    });
+    $(".edit-label-button").click(function() {
+      $("#label-modal-id").val($(this).data("id"));
+      $(".edit-label .new-label-input").val($(this).data("title"));
+      $(".edit-label .color-picker").val($(this).data("color"));
+      $(".minicolors-swatch-color").css(
+        "background-color",
+        $(this).data("color")
+      );
+      $(".edit-label.modal")
+        .modal({
+          onApprove: function() {
+            $(".edit-label.form").submit();
+          }
+        })
+        .modal("show");
+      return false;
+    });
+  }
+
+  // Milestones
+  if ($(".repository.milestones").length > 0) {
+  }
+  if ($(".repository.new.milestone").length > 0) {
+    var $datepicker = $(".milestone.datepicker");
+    $datepicker.datetimepicker({
+      lang: $datepicker.data("lang"),
+      inline: true,
+      timepicker: false,
+      startDate: $datepicker.data("start-date"),
+      formatDate: "Y-m-d",
+      onSelectDate: function(ct) {
+        $("#deadline").val(ct.dateFormat("Y-m-d"));
+      }
+    });
+    $("#clear-date").click(function() {
+      $("#deadline").val("");
+      return false;
+    });
+  }
+
+  // Issues
+  if ($(".repository.view.issue").length > 0) {
+    // Edit issue title
+    var $issueTitle = $("#issue-title");
+    var $editInput = $("#edit-title-input").find("input");
+    var editTitleToggle = function() {
+      $issueTitle.toggle();
+      $(".not-in-edit").toggle();
+      $("#edit-title-input").toggle();
+      $(".in-edit").toggle();
+      $editInput.focus();
+      return false;
+    };
+    $("#edit-title").click(editTitleToggle);
+    $("#cancel-edit-title").click(editTitleToggle);
+    $("#save-edit-title")
+      .click(editTitleToggle)
+      .click(function() {
+        if (
+          $editInput.val().length == 0 ||
+          $editInput.val() == $issueTitle.text()
+        ) {
+          $editInput.val($issueTitle.text());
+          return false;
+        }
+
+        $.post(
+          $(this).data("update-url"),
+          {
+            _csrf: csrf,
+            title: $editInput.val()
+          },
+          function(data) {
+            $editInput.val(data.title);
+            $issueTitle.text(data.title);
+          }
+        );
+        return false;
+      });
+
+    // Edit issue or comment content
+    $(".edit-content").click(function() {
+      var $segment = $(this)
+        .parent()
+        .parent()
+        .parent()
+        .next();
+      var $editContentZone = $segment.find(".edit-content-zone");
+      var $renderContent = $segment.find(".render-content");
+      var $rawContent = $segment.find(".raw-content");
+      var $textarea;
+
+      // Setup new form
+      if ($editContentZone.html().length == 0) {
+        $editContentZone.html($("#edit-content-form").html());
+        $textarea = $segment.find("textarea");
+
+        // Give new write/preview data-tab name to distinguish from others
+        var $editContentForm = $editContentZone.find(".ui.comment.form");
+        var $tabMenu = $editContentForm.find(".tabular.menu");
+        $tabMenu.attr("data-write", $editContentZone.data("write"));
+        $tabMenu.attr("data-preview", $editContentZone.data("preview"));
+        $tabMenu
+          .find(".write.item")
+          .attr("data-tab", $editContentZone.data("write"));
+        $tabMenu
+          .find(".preview.item")
+          .attr("data-tab", $editContentZone.data("preview"));
+        $editContentForm
+          .find(".write.segment")
+          .attr("data-tab", $editContentZone.data("write"));
+        $editContentForm
+          .find(".preview.segment")
+          .attr("data-tab", $editContentZone.data("preview"));
+
+        initCommentPreviewTab($editContentForm);
+
+        $editContentZone.find(".cancel.button").click(function() {
+          $renderContent.show();
+          $editContentZone.hide();
+        });
+        $editContentZone.find(".save.button").click(function() {
+          $renderContent.show();
+          $editContentZone.hide();
+
+          $.post(
+            $editContentZone.data("update-url"),
+            {
+              _csrf: csrf,
+              content: $textarea.val(),
+              context: $editContentZone.data("context")
+            },
+            function(data) {
+              if (data.length == 0) {
+                $renderContent.html($("#no-content").html());
+              } else {
+                $renderContent.html(data.content);
+                emojify.run($renderContent[0]);
+                $("pre code", $renderContent[0]).each(function(i, block) {
+                  hljs.highlightBlock(block);
+                });
+              }
+            }
+          );
+        });
+      } else {
+        $textarea = $segment.find("textarea");
+      }
+
+      // Show write/preview tab and copy raw content as needed
+      $editContentZone.show();
+      $renderContent.hide();
+      if ($textarea.val().length == 0) {
+        $textarea.val($rawContent.text());
+      }
+      $textarea.focus();
+      return false;
+    });
+
+    // Delete comment
+    $(".delete-comment").click(function() {
+      var $this = $(this);
+      if (confirm($this.data("locale"))) {
+        $.post($this.data("url"), {
+          _csrf: csrf
+        }).done(function() {
+          $("#" + $this.data("comment-id")).remove();
+        });
+      }
+      return false;
+    });
+
+    // Change status
+    var $statusButton = $("#status-button");
+    $("#comment-form .edit_area").keyup(function() {
+      if ($(this).val().length == 0) {
+        $statusButton.text($statusButton.data("status"));
+      } else {
+        $statusButton.text($statusButton.data("status-and-comment"));
+      }
+    });
+    $statusButton.click(function() {
+      $("#status").val($statusButton.data("status-val"));
+      $("#comment-form").submit();
+    });
+  }
+
+  // Diff
+  if ($(".repository.diff").length > 0) {
+    var $counter = $(".diff-counter");
+    if ($counter.length >= 1) {
+      $counter.each(function(i, item) {
+        var $item = $(item);
+        var addLine = $item.find("span[data-line].add").data("line");
+        var delLine = $item.find("span[data-line].del").data("line");
+        var addPercent =
+          (parseFloat(addLine) / (parseFloat(addLine) + parseFloat(delLine))) *
+          100;
+        $item.find(".bar .add").css("width", addPercent + "%");
+      });
+    }
+
+    $(".diff-file-box .lines-num").click(function() {
+      if ($(this).attr("id")) {
+        window.location.href = "#" + $(this).attr("id");
+      }
+    });
+
+    $(window)
+      .on("hashchange", function(e) {
+        $(".diff-file-box .lines-code.active").removeClass("active");
+        var m = window.location.hash.match(/^#diff-.+$/);
+        if (m) {
+          $(m[0])
+            .siblings(".lines-code")
+            .addClass("active");
+        }
+      })
+      .trigger("hashchange");
+  }
+
+  // Quick start and repository home
+  $("#repo-clone-ssh").click(function() {
+    $(".clone-url").text($(this).data("link"));
+    $("#repo-clone-url").val($(this).data("link"));
+    $(this).addClass("blue");
+    $("#repo-clone-https").removeClass("blue");
+    localStorage.setItem("repo-clone-protocol", "ssh");
+  });
+  $("#repo-clone-https").click(function() {
+    $(".clone-url").text($(this).data("link"));
+    $("#repo-clone-url").val($(this).data("link"));
+    $(this).addClass("blue");
+    $("#repo-clone-ssh").removeClass("blue");
+    localStorage.setItem("repo-clone-protocol", "https");
+  });
+  $("#repo-clone-url").click(function() {
+    $(this).select();
+  });
+
+  // Pull request
+  if ($(".repository.compare.pull").length > 0) {
+    initFilterSearchDropdown(".choose.branch .dropdown");
+  }
+  if ($(".repository.view.pull").length > 0) {
+    $(".comment.merge.box input[name=merge_style]").change(function() {
+      if ($(this).val() === "create_merge_commit") {
+        $(".commit.description.field").show();
+      } else {
+        $(".commit.description.field").hide();
+      }
+    });
+  }
+}
+
+function initWikiForm() {
+  var $editArea = $(".repository.wiki textarea#edit_area");
+  if ($editArea.length > 0) {
+    new SimpleMDE({
+      autoDownloadFontAwesome: false,
+      element: $editArea[0],
+      forceSync: true,
+      previewRender: function(plainText, preview) {
+        // Async method
+        setTimeout(function() {
+          // FIXME: still send render request when return back to edit mode
+          $.post(
+            $editArea.data("url"),
+            {
+              _csrf: csrf,
+              mode: "gfm",
+              context: $editArea.data("context"),
+              text: plainText
+            },
+            function(data) {
+              preview.innerHTML = '<div class="markdown">' + data + "</div>";
+              emojify.run($(".editor-preview")[0]);
+            }
+          );
+        }, 0);
+
+        return "Loading...";
+      },
+      renderingConfig: {
+        singleLineBreaks: false
+      },
+      indentWithTabs: false,
+      tabSize: 4,
+      spellChecker: false,
+      toolbar: [
+        "bold",
+        "italic",
+        "strikethrough",
+        "|",
+        "heading-1",
+        "heading-2",
+        "heading-3",
+        "heading-bigger",
+        "heading-smaller",
+        "|",
+        "code",
+        "quote",
+        "|",
+        "unordered-list",
+        "ordered-list",
+        "|",
+        "link",
+        "image",
+        "table",
+        "horizontal-rule",
+        "|",
+        "clean-block",
+        "preview",
+        "fullscreen"
+      ]
+    });
+  }
+}
+
+var simpleMDEditor;
+var codeMirrorEditor;
+
+// For IE
+String.prototype.endsWith = function(pattern) {
+  var d = this.length - pattern.length;
+  return d >= 0 && this.lastIndexOf(pattern) === d;
+};
+
+// Adding function to get the cursor position in a text field to jQuery object.
+(function($, undefined) {
+  $.fn.getCursorPosition = function() {
+    var el = $(this).get(0);
+    var pos = 0;
+    if ("selectionStart" in el) {
+      pos = el.selectionStart;
+    } else if ("selection" in document) {
+      el.focus();
+      var Sel = document.selection.createRange();
+      var SelLength = document.selection.createRange().text.length;
+      Sel.moveStart("character", -el.value.length);
+      pos = Sel.text.length - SelLength;
+    }
+    return pos;
+  };
+})(jQuery);
+
+function setSimpleMDE($editArea) {
+  if (codeMirrorEditor) {
+    codeMirrorEditor.toTextArea();
+    codeMirrorEditor = null;
+  }
+
+  if (simpleMDEditor) {
+    return true;
+  }
+
+  simpleMDEditor = new SimpleMDE({
+    autoDownloadFontAwesome: false,
+    element: $editArea[0],
+    forceSync: true,
+    renderingConfig: {
+      singleLineBreaks: false
+    },
+    indentWithTabs: false,
+    tabSize: 4,
+    spellChecker: false,
+    previewRender: function(plainText, preview) {
+      // Async method
+      setTimeout(function() {
+        // FIXME: still send render request when return back to edit mode
+        $.post(
+          $editArea.data("url"),
+          {
+            _csrf: csrf,
+            mode: "gfm",
+            context: $editArea.data("context"),
+            text: plainText
+          },
+          function(data) {
+            preview.innerHTML = '<div class="markdown">' + data + "</div>";
+            emojify.run($(".editor-preview")[0]);
+          }
+        );
+      }, 0);
+
+      return "Loading...";
+    },
+    toolbar: [
+      "bold",
+      "italic",
+      "strikethrough",
+      "|",
+      "heading-1",
+      "heading-2",
+      "heading-3",
+      "heading-bigger",
+      "heading-smaller",
+      "|",
+      "code",
+      "quote",
+      "|",
+      "unordered-list",
+      "ordered-list",
+      "|",
+      "link",
+      "image",
+      "table",
+      "horizontal-rule",
+      "|",
+      "clean-block"
+    ]
+  });
+
+  return true;
+}
+
+function setCodeMirror($editArea) {
+  if (simpleMDEditor) {
+    simpleMDEditor.toTextArea();
+    simpleMDEditor = null;
+  }
+
+  if (codeMirrorEditor) {
+    return true;
+  }
+
+  codeMirrorEditor = CodeMirror.fromTextArea($editArea[0], {
+    lineNumbers: true
+  });
+  codeMirrorEditor.on("change", function(cm, change) {
+    $editArea.val(cm.getValue());
+  });
+
+  return true;
+}
+
+function initEditor() {
+  $(".js-quick-pull-choice-option").change(function() {
+    if ($(this).val() == "commit-to-new-branch") {
+      $(".quick-pull-branch-name").show();
+      $(".quick-pull-branch-name input").prop("required", true);
+    } else {
+      $(".quick-pull-branch-name").hide();
+      $(".quick-pull-branch-name input").prop("required", false);
+    }
+  });
+
+  var $editFilename = $("#file-name");
+  $editFilename
+    .keyup(function(e) {
+      var $section = $(".breadcrumb span.section");
+      var $divider = $(".breadcrumb div.divider");
+      if (e.keyCode == 8) {
+        if ($(this).getCursorPosition() == 0) {
+          if ($section.length > 0) {
+            var value = $section
+              .last()
+              .find("a")
+              .text();
+            $(this).val(value + $(this).val());
+            $(this)[0].setSelectionRange(value.length, value.length);
+            $section.last().remove();
+            $divider.last().remove();
+          }
+        }
+      }
+      if (e.keyCode == 191) {
+        var parts = $(this)
+          .val()
+          .split("/");
+        for (var i = 0; i < parts.length; ++i) {
+          var value = parts[i];
+          if (i < parts.length - 1) {
+            if (value.length) {
+              $(
+                '<span class="section"><a href="#">' + value + "</a></span>"
+              ).insertBefore($(this));
+              $('<div class="divider"> / </div>').insertBefore($(this));
+            }
+          } else {
+            $(this).val(value);
+          }
+          $(this)[0].setSelectionRange(0, 0);
+        }
+      }
+      var parts = [];
+      $(".breadcrumb span.section").each(function(i, element) {
+        element = $(element);
+        if (element.find("a").length) {
+          parts.push(element.find("a").text());
+        } else {
+          parts.push(element.text());
+        }
+      });
+      if ($(this).val()) {
+        parts.push($(this).val());
+      }
+
+      var tree_path = parts.join("/");
+      $("#tree_path").val(tree_path);
+      $("#preview-tab").data(
+        "context",
+        $("#preview-tab").data("root-context") +
+          tree_path.substring(0, tree_path.lastIndexOf("/") + 1)
+      );
+    })
+    .trigger("keyup");
+
+  var $editArea = $(".repository.editor textarea#edit_area");
+  if (!$editArea.length) return;
+
+  var markdownFileExts = $editArea.data("markdown-file-exts").split(",");
+  var lineWrapExtensions = $editArea.data("line-wrap-extensions").split(",");
+
+  $editFilename
+    .on("keyup", function(e) {
+      var val = $editFilename.val(),
+        m,
+        mode,
+        spec,
+        extension,
+        extWithDot,
+        previewLink,
+        dataUrl,
+        apiCall;
+      extension = extWithDot = "";
+      if ((m = /.+\.([^.]+)$/.exec(val))) {
+        extension = m[1].toLowerCase();
+        extWithDot = "." + extension;
+      }
+
+      var info = CodeMirror.findModeByExtension(extension);
+      previewLink = $("a[data-tab=preview]");
+      if (info) {
+        mode = info.mode;
+        spec = info.mime;
+        apiCall = mode;
+      } else {
+        apiCall = extension;
+      }
+
+      if (
+        previewLink.length &&
+        apiCall &&
+        previewFileModes &&
+        previewFileModes.length &&
+        previewFileModes.indexOf(apiCall) >= 0
+      ) {
+        dataUrl = previewLink.data("url");
+        previewLink.data("url", dataUrl.replace(/(.*)\/.*/i, "$1/" + mode));
+        previewLink.show();
+      } else {
+        previewLink.hide();
+      }
+
+      // If this file is a Markdown extensions, we will load that editor and return
+      if (markdownFileExts.indexOf(extWithDot) >= 0) {
+        if (setSimpleMDE($editArea)) {
+          return;
+        }
+      }
+
+      // Else we are going to use CodeMirror
+      if (!codeMirrorEditor && !setCodeMirror($editArea)) {
+        return;
+      }
+
+      if (mode) {
+        codeMirrorEditor.setOption("mode", spec);
+        CodeMirror.autoLoadMode(codeMirrorEditor, mode);
+      }
+
+      if (lineWrapExtensions.indexOf(extWithDot) >= 0) {
+        codeMirrorEditor.setOption("lineWrapping", true);
+      } else {
+        codeMirrorEditor.setOption("lineWrapping", false);
+      }
+
+      // get the filename without any folder
+      var value = $editFilename.val();
+      if (value.length === 0) {
+        return;
+      }
+      value = value.split("/");
+      value = value[value.length - 1];
+
+      $.getJSON($editFilename.data("ec-url-prefix") + value, function(
+        editorconfig
+      ) {
+        if (editorconfig.indent_style === "tab") {
+          codeMirrorEditor.setOption("indentWithTabs", true);
+          codeMirrorEditor.setOption("extraKeys", {});
+        } else {
+          codeMirrorEditor.setOption("indentWithTabs", false);
+          // required because CodeMirror doesn't seems to use spaces correctly for {"indentWithTabs": false}:
+          // - https://github.com/codemirror/CodeMirror/issues/988
+          // - https://codemirror.net/doc/manual.html#keymaps
+          codeMirrorEditor.setOption("extraKeys", {
+            Tab: function(cm) {
+              var spaces = Array(parseInt(cm.getOption("indentUnit")) + 1).join(
+                " "
+              );
+              cm.replaceSelection(spaces);
+            }
+          });
+        }
+        codeMirrorEditor.setOption("indentUnit", editorconfig.indent_size || 4);
+        codeMirrorEditor.setOption("tabSize", editorconfig.tab_width || 4);
+      });
+    })
+    .trigger("keyup");
+}
+
+function initOrganization() {
+  if ($(".organization").length == 0) {
+    return;
+  }
+
+  // Options
+  if ($(".organization.settings.options").length > 0) {
+    $("#org_name").keyup(function() {
+      var $prompt = $("#org-name-change-prompt");
+      if (
+        $(this)
+          .val()
+          .toString()
+          .toLowerCase() !=
+        $(this)
+          .data("org-name")
+          .toString()
+          .toLowerCase()
+      ) {
+        $prompt.show();
+      } else {
+        $prompt.hide();
+      }
+    });
+  }
+}
+
+function initAdmin() {
+  if ($(".admin").length == 0) {
+    return;
+  }
+
+  // New user
+  if ($(".admin.new.user").length > 0 || $(".admin.edit.user").length > 0) {
+    $("#login_type").change(function() {
+      if (
+        $(this)
+          .val()
+          .substring(0, 1) == "0"
+      ) {
+        $("#login_name").removeAttr("required");
+        $(".non-local").hide();
+        $(".local").show();
+        $("#user_name").focus();
+
+        if ($(this).data("password") == "required") {
+          $("#password").attr("required", "required");
+        }
+      } else {
+        $("#login_name").attr("required", "required");
+        $(".non-local").show();
+        $(".local").hide();
+        $("#login_name").focus();
+
+        $("#password").removeAttr("required");
+      }
+    });
+  }
+
+  function onSecurityProtocolChange() {
+    if ($("#security_protocol").val() > 0) {
+      $(".has-tls").show();
+    } else {
+      $(".has-tls").hide();
+    }
+  }
+
+  // New authentication
+  if ($(".admin.new.authentication").length > 0) {
+    $("#auth_type").change(function() {
+      $(".ldap").hide();
+      $(".dldap").hide();
+      $(".smtp").hide();
+      $(".pam").hide();
+      $(".github").hide();
+      $(".has-tls").hide();
+
+      var authType = $(this).val();
+      switch (authType) {
+        case "2": // LDAP
+          $(".ldap").show();
+          break;
+        case "3": // SMTP
+          $(".smtp").show();
+          $(".has-tls").show();
+          break;
+        case "4": // PAM
+          $(".pam").show();
+          break;
+        case "5": // LDAP
+          $(".dldap").show();
+          break;
+        case "6": //GITHUB
+          $(".github").show();
+          $(".has-tls").show();
+          break;
+      }
+
+      if (authType == "2" || authType == "5") {
+        onSecurityProtocolChange();
+      }
+    });
+    $("#security_protocol").change(onSecurityProtocolChange);
+  }
+  // Edit authentication
+  if ($(".admin.edit.authentication").length > 0) {
+    var authType = $("#auth_type").val();
+    if (authType == "2" || authType == "5") {
+      $("#security_protocol").change(onSecurityProtocolChange);
+    }
+  }
+
+  // Notice
+  if ($(".admin.notice")) {
+    var $detailModal = $("#detail-modal");
+
+    // Attach view detail modals
+    $(".view-detail").click(function() {
+      $detailModal.find(".content p").text($(this).data("content"));
+      $detailModal.modal("show");
+      return false;
+    });
+
+    // Select actions
+    var $checkboxes = $(".select.table .ui.checkbox");
+    $(".select.action").click(function() {
+      switch ($(this).data("action")) {
+        case "select-all":
+          $checkboxes.checkbox("check");
+          break;
+        case "deselect-all":
+          $checkboxes.checkbox("uncheck");
+          break;
+        case "inverse":
+          $checkboxes.checkbox("toggle");
+          break;
+      }
+    });
+    $("#delete-selection").click(function() {
+      var $this = $(this);
+      $this.addClass("loading disabled");
+      var ids = [];
+      $checkboxes.each(function() {
+        if ($(this).checkbox("is checked")) {
+          ids.push($(this).data("id"));
+        }
+      });
+      $.post($this.data("link"), {
+        _csrf: csrf,
+        ids: ids
+      }).done(function() {
+        window.location.href = $this.data("redirect");
+      });
+    });
+  }
+}
+
+function buttonsClickOnEnter() {
+  $(".ui.button").keypress(function(e) {
+    if (e.keyCode == 13 || e.keyCode == 32)
+      // enter key or space bar
+      $(this).click();
+  });
+}
+
+function hideWhenLostFocus(body, parent) {
+  $(document).click(function(e) {
+    var target = e.target;
+    if (
+      !$(target).is(body) &&
+      !$(target)
+        .parents()
+        .is(parent)
+    ) {
+      $(body).hide();
+    }
+  });
+}
+
+function searchUsers() {
+  if (!$("#search-user-box .results").length) {
+    return;
+  }
+
+  var $searchUserBox = $("#search-user-box");
+  var $results = $searchUserBox.find(".results");
+  $searchUserBox.keyup(function() {
+    var $this = $(this);
+    var keyword = $this.find("input").val();
+    if (keyword.length < 2) {
+      $results.hide();
+      return;
+    }
+
+    $.ajax({
+      url: suburl + "/api/v1/users/search?q=" + keyword,
+      dataType: "json",
+      success: function(response) {
+        var notEmpty = function(str) {
+          return str && str.length > 0;
+        };
+
+        $results.html("");
+
+        if (response.ok && response.data.length) {
+          var html = "";
+          $.each(response.data, function(i, item) {
+            html +=
+              '<div class="item"><img class="ui avatar image" src="' +
+              item.avatar_url +
+              '"><span class="username">' +
+              item.username +
+              "</span>";
+            if (notEmpty(item.full_name)) {
+              html += " (" + item.full_name + ")";
+            }
+            html += "</div>";
+          });
+          $results.html(html);
+          $this.find(".results .item").click(function() {
+            $this.find("input").val(
+              $(this)
+                .find(".username")
+                .text()
+            );
+            $results.hide();
+          });
+          $results.show();
+        } else {
+          $results.hide();
+        }
+      }
+    });
+  });
+  $searchUserBox.find("input").focus(function() {
+    $searchUserBox.keyup();
+  });
+  hideWhenLostFocus("#search-user-box .results", "#search-user-box");
+}
+
+// FIXME: merge common parts in two functions
+function searchRepositories() {
+  if (!$("#search-repo-box .results").length) {
+    return;
+  }
+
+  var $searchRepoBox = $("#search-repo-box");
+  var $results = $searchRepoBox.find(".results");
+  $searchRepoBox.keyup(function() {
+    var $this = $(this);
+    var keyword = $this.find("input").val();
+    if (keyword.length < 2) {
+      $results.hide();
+      return;
+    }
+
+    $.ajax({
+      url:
+        suburl +
+        "/api/v1/repos/search?q=" +
+        keyword +
+        "&uid=" +
+        $searchRepoBox.data("uid"),
+      dataType: "json",
+      success: function(response) {
+        var notEmpty = function(str) {
+          return str && str.length > 0;
+        };
+
+        $results.html("");
+
+        if (response.ok && response.data.length) {
+          var html = "";
+          $.each(response.data, function(i, item) {
+            html +=
+              '<div class="item"><i class="octicon octicon-repo"></i> <span class="fullname">' +
+              item.full_name +
+              "</span></div>";
+          });
+          $results.html(html);
+          $this.find(".results .item").click(function() {
+            $this.find("input").val(
+              $(this)
+                .find(".fullname")
+                .text()
+                .split("/")[1]
+            );
+            $results.hide();
+          });
+          $results.show();
+        } else {
+          $results.hide();
+        }
+      }
+    });
+  });
+  $searchRepoBox.find("input").focus(function() {
+    $searchRepoBox.keyup();
+  });
+  hideWhenLostFocus("#search-repo-box .results", "#search-repo-box");
+}
+
+function initCodeView() {
+  if ($(".code-view .linenums").length > 0) {
+    $(document).on("click", ".lines-num span", function(e) {
+      var $select = $(this);
+      var $list = $select
+        .parent()
+        .siblings(".lines-code")
+        .find("ol.linenums > li");
+      selectRange(
+        $list,
+        $list.filter("[rel=" + $select.attr("id") + "]"),
+        e.shiftKey ? $list.filter(".active").eq(0) : null
+      );
+      deSelect();
+    });
+
+    $(window)
+      .on("hashchange", function(e) {
+        var m = window.location.hash.match(/^#(L\d+)\-(L\d+)$/);
+        var $list = $(".code-view ol.linenums > li");
+        var $first;
+        if (m) {
+          $first = $list.filter("." + m[1]);
+          selectRange($list, $first, $list.filter("." + m[2]));
+          $("html, body").scrollTop($first.offset().top - 200);
+          return;
+        }
+        m = window.location.hash.match(/^#(L\d+)$/);
+        if (m) {
+          $first = $list.filter("." + m[1]);
+          selectRange($list, $first);
+          $("html, body").scrollTop($first.offset().top - 200);
+        }
+      })
+      .trigger("hashchange");
+  }
+}
+
+function initUserSettings() {
+  console.log("initUserSettings");
+
+  // Options
+  if ($(".user.settings.profile").length > 0) {
+    $("#username").keyup(function() {
+      var $prompt = $("#name-change-prompt");
+      if (
+        $(this)
+          .val()
+          .toString()
+          .toLowerCase() !=
+        $(this)
+          .data("name")
+          .toString()
+          .toLowerCase()
+      ) {
+        $prompt.show();
+      } else {
+        $prompt.hide();
+      }
+    });
+  }
+}
+
+function initRepositoryCollaboration() {
+  console.log("initRepositoryCollaboration");
+
+  // Change collaborator access mode
+  $(".access-mode.menu .item").click(function() {
+    var $menu = $(this).parent();
+    $.post($menu.data("url"), {
+      _csrf: csrf,
+      uid: $menu.data("uid"),
+      mode: $(this).data("value")
+    });
+  });
+}
+
+function initWebhookSettings() {
+  $(".events.checkbox input").change(function() {
+    if ($(this).is(":checked")) {
+      $(".events.fields").show();
+    }
+  });
+  $(".non-events.checkbox input").change(function() {
+    if ($(this).is(":checked")) {
+      $(".events.fields").hide();
+    }
+  });
+
+  // Highlight payload on first click
+  $(".hook.history.list .toggle.button").click(function() {
+    $($(this).data("target") + " .nohighlight").each(function() {
+      var $this = $(this);
+      $this.removeClass("nohighlight");
+      setTimeout(function() {
+        hljs.highlightBlock($this[0]);
+      }, 500);
+    });
+  });
+
+  // Trigger delivery
+  $(".delivery.button, .redelivery.button").click(function() {
+    var $this = $(this);
+    $this.addClass("loading disabled");
+    $.post($this.data("link"), {
+      _csrf: csrf
+    }).done(
+      setTimeout(function() {
+        window.location.href = $this.data("redirect");
+      }, 5000)
+    );
+  });
+}
+
+$(document).ready(function() {
+  csrf = $("meta[name=_csrf]").attr("content");
+  suburl = $("meta[name=_suburl]").attr("content");
+
+  // Set cursor to the end of autofocus input string
+  $("input[autofocus]").each(function() {
+    $(this).val($(this).val());
+  });
+
+  // Show exact time
+  $(".time-since").each(function() {
+    $(this)
+      .addClass("poping up")
+      .attr("data-content", $(this).attr("title"))
+      .attr("data-variation", "inverted tiny")
+      .attr("title", "");
+  });
+
+  // Semantic UI modules.
+  $(".ui.dropdown").dropdown({
+    forceSelection: false
+  });
+  $(".jump.dropdown").dropdown({
+    action: "select",
+    onShow: function() {
+      $(".poping.up").popup("hide");
+    }
+  });
+  $(".slide.up.dropdown").dropdown({
+    transition: "slide up"
+  });
+  $(".upward.dropdown").dropdown({
+    direction: "upward"
+  });
+  $(".ui.accordion").accordion();
+  $(".ui.checkbox").checkbox();
+  $(".ui.progress").progress({
+    showActivity: false
+  });
+  $(".poping.up").popup();
+  $(".top.menu .poping.up").popup({
+    onShow: function() {
+      if ($(".top.menu .menu.transition").hasClass("visible")) {
+        return false;
+      }
+    }
+  });
+  $(".tabular.menu .item").tab();
+  $(".tabable.menu .item").tab();
+
+  $(".toggle.button").click(function() {
+    $($(this).data("target")).slideToggle(100);
+  });
+
+  // Dropzone
+  var $dropzone = $("#dropzone");
+  if ($dropzone.length > 0) {
+    var filenameDict = {};
+    $dropzone.dropzone({
+      url: $dropzone.data("upload-url"),
+      headers: { "X-CSRF-Token": csrf },
+      maxFiles: $dropzone.data("max-file"),
+      maxFilesize: $dropzone.data("max-size"),
+      acceptedFiles:
+        $dropzone.data("accepts") === "*/*" ? null : $dropzone.data("accepts"),
+      addRemoveLinks: true,
+      dictDefaultMessage: $dropzone.data("default-message"),
+      dictInvalidFileType: $dropzone.data("invalid-input-type"),
+      dictFileTooBig: $dropzone.data("file-too-big"),
+      dictRemoveFile: $dropzone.data("remove-file"),
+      init: function() {
+        this.on("success", function(file, data) {
+          filenameDict[file.name] = data.uuid;
+          var input = $(
+            '<input id="' + data.uuid + '" name="files" type="hidden">'
+          ).val(data.uuid);
+          $(".files").append(input);
+        });
+        this.on("removedfile", function(file) {
+          if (file.name in filenameDict) {
+            $("#" + filenameDict[file.name]).remove();
+          }
+          if ($dropzone.data("remove-url") && $dropzone.data("csrf")) {
+            $.post($dropzone.data("remove-url"), {
+              file: filenameDict[file.name],
+              _csrf: $dropzone.data("csrf")
+            });
+          }
+        });
+      }
+    });
+  }
+
+  // Emojify
+  emojify.setConfig({
+    img_dir: suburl + "/img/emoji",
+    ignore_emoticons: true
+  });
+  var hasEmoji = document.getElementsByClassName("has-emoji");
+  for (var i = 0; i < hasEmoji.length; i++) {
+    emojify.run(hasEmoji[i]);
+  }
+
+  // Clipboard JS
+  var clipboard = new ClipboardJS(".clipboard");
+  clipboard.on("success", function(e) {
+    e.clearSelection();
+
+    $("#" + e.trigger.getAttribute("id")).popup("destroy");
+    e.trigger.setAttribute(
+      "data-content",
+      e.trigger.getAttribute("data-success")
+    );
+    $("#" + e.trigger.getAttribute("id")).popup("show");
+    e.trigger.setAttribute(
+      "data-content",
+      e.trigger.getAttribute("data-original")
+    );
+  });
+
+  clipboard.on("error", function(e) {
+    $("#" + e.trigger.getAttribute("id")).popup("destroy");
+    e.trigger.setAttribute(
+      "data-content",
+      e.trigger.getAttribute("data-error")
+    );
+    $("#" + e.trigger.getAttribute("id")).popup("show");
+    e.trigger.setAttribute(
+      "data-content",
+      e.trigger.getAttribute("data-original")
+    );
+  });
+
+  // Autosize
+  if ($("#description.autosize").length > 0) {
+    autosize($("#description"));
+    showMessageMaxLength(512, "description", "descLength");
+  }
+
+  // AJAX load buttons
+  $(".ajax-load-button").click(function() {
+    var $this = $(this);
+    $this.addClass("disabled");
+
+    $.ajax({
+      url: $this.data("url"),
+      headers: {
+        "X-AJAX": "true"
+      }
+    }).done(function(data, status, request) {
+      $(data).insertBefore($this);
+
+      // Update new URL or remove self if no more feeds
+      var url = request.getResponseHeader("X-AJAX-URL");
+      if (url) {
+        $this.data("url", url);
+        $this.removeClass("disabled");
+      } else {
+        $this.remove();
+      }
+    });
+  });
+
+  // Helpers
+  $(".delete-button").click(function() {
+    var $this = $(this);
+    $(".delete.modal")
+      .modal({
+        closable: false,
+        onApprove: function() {
+          if ($this.data("type") == "form") {
+            $($this.data("form")).submit();
+            return;
+          }
+
+          $.post($this.data("url"), {
+            _csrf: csrf,
+            id: $this.data("id")
+          }).done(function(data) {
+            window.location.href = data.redirect;
+          });
+        }
+      })
+      .modal("show");
+    return false;
+  });
+  $(".show-panel.button").click(function() {
+    $($(this).data("panel")).show();
+  });
+  $(".show-modal.button").click(function() {
+    $($(this).data("modal")).modal("show");
+  });
+  $(".delete-post.button").click(function() {
+    var $this = $(this);
+    $.post($this.data("request-url"), {
+      _csrf: csrf
+    }).done(function() {
+      window.location.href = $this.data("done-url");
+    });
+  });
+  // To make arbitrary form element to behave like a submit button
+  $(".submit-button").click(function() {
+    $($(this).data("form")).submit();
+  });
+
+  // Check or select on option to enable/disable target region
+  $(".enable-system").change(function() {
+    if (this.checked) {
+      $($(this).data("target")).removeClass("disabled");
+    } else {
+      $($(this).data("target")).addClass("disabled");
+      $($(this).data("uncheck")).prop("checked", false);
+    }
+  });
+  $(".enable-system-radio").change(function() {
+    $($(this).data("enable")).removeClass("disabled");
+    $($(this).data("disable")).addClass("disabled");
+    $($(this).data("uncheck")).prop("checked", false);
+  });
+
+  // Set anchor.
+  $(".markdown").each(function() {
+    var headers = {};
+    $(this)
+      .find("h1, h2, h3, h4, h5, h6")
+      .each(function() {
+        var node = $(this);
+        var val = encodeURIComponent(
+          node
+            .text()
+            .toLowerCase()
+            .replace(/[^\u00C0-\u1FFF\u2C00-\uD7FF\w\- ]/g, "")
+            .replace(/[ ]/g, "-")
+        );
+        var name = val;
+        if (headers[val] > 0) {
+          name = val + "-" + headers[val];
+        }
+        if (headers[val] == undefined) {
+          headers[val] = 1;
+        } else {
+          headers[val] += 1;
+        }
+        node = node.wrap('<div id="' + name + '" class="anchor-wrap" ></div>');
+        node.append(
+          '<a class="anchor" href="#' +
+            name +
+            '"><span class="octicon octicon-link"></span></a>'
+        );
+      });
+  });
+
+  buttonsClickOnEnter();
+  searchUsers();
+  searchRepositories();
+
+  initCommentForm();
+  initRepository();
+  initWikiForm();
+  initEditForm();
+  initEditor();
+  initOrganization();
+  initAdmin();
+  initCodeView();
+
+  // Repo clone url.
+  if ($("#repo-clone-url").length > 0) {
+    switch (localStorage.getItem("repo-clone-protocol")) {
+      case "ssh":
+        if ($("#repo-clone-ssh").click().length === 0) {
+          $("#repo-clone-https").click();
+        }
+        break;
+      default:
+        $("#repo-clone-https").click();
+        break;
+    }
+  }
+
+  var routes = {
+    "div.user.settings": initUserSettings,
+    "div.repository.settings.collaboration": initRepositoryCollaboration,
+    "div.webhook.settings": initWebhookSettings
+  };
+
+  var selector;
+  for (selector in routes) {
+    if ($(selector).length > 0) {
+      routes[selector]();
+      break;
+    }
+  }
+});
+
+function changeHash(hash) {
+  if (history.pushState) {
+    history.pushState(null, null, hash);
+  } else {
+    location.hash = hash;
+  }
+}
+
+function deSelect() {
+  if (window.getSelection) {
+    window.getSelection().removeAllRanges();
+  } else {
+    document.selection.empty();
+  }
+}
+
+function selectRange($list, $select, $from) {
+  $list.removeClass("active");
+  if ($from) {
+    var a = parseInt($select.attr("rel").substr(1));
+    var b = parseInt($from.attr("rel").substr(1));
+    var c;
+    if (a != b) {
+      if (a > b) {
+        c = a;
+        a = b;
+        b = c;
+      }
+      var classes = [];
+      for (var i = a; i <= b; i++) {
+        classes.push(".L" + i);
+      }
+      $list.filter(classes.join(",")).addClass("active");
+      changeHash("#L" + a + "-" + "L" + b);
+      return;
+    }
+  }
+  $select.addClass("active");
+  changeHash("#" + $select.attr("rel"));
+}
+
+$(function() {
+  if ($(".user.signin").length > 0) return;
+  $("form").areYouSure();
+});
+
+// getByteLen counts bytes in a string's UTF-8 representation.
+function getByteLen(normalVal) {
+  // Force string type
+  normalVal = String(normalVal);
+
+  var byteLen = 0;
+  for (var i = 0; i < normalVal.length; i++) {
+    var c = normalVal.charCodeAt(i);
+    byteLen +=
+      c < 1 << 7
+        ? 1
+        : c < 1 << 11
+        ? 2
+        : c < 1 << 16
+        ? 3
+        : c < 1 << 21
+        ? 4
+        : c < 1 << 26
+        ? 5
+        : c < 1 << 31
+        ? 6
+        : Number.NaN;
+  }
+  return byteLen;
+}
+
+function showMessageMaxLength(maxLen, textElemId, counterId) {
+  var $msg = $("#" + textElemId);
+  $("#" + counterId).html(maxLen - getByteLen($msg.val()));
+
+  var onMessageKey = function(e) {
+    var $msg = $(this);
+    var text = $msg.val();
+    var len = getByteLen(text);
+    var remainder = maxLen - len;
+
+    if (len >= maxLen) {
+      $msg.val($msg.val().substr(0, maxLen));
+      remainder = 0;
+    }
+
+    $("#" + counterId).html(remainder);
+  };
+
+  $msg.keyup(onMessageKey).keydown(onMessageKey);
+}
+”ò¿Ÿ∆  µ        a ŸÁ      csrf   *,-å      suburl     Özß      initCommentPreviewTab      l…≠      $form      ënôÖ      $tabMenu   ÇŸª      .tabular.menu      ä6õÙ      .item      ûª◊!      tab    ˇÛ%+      .item[data-tab="	   6ó(Å      data
+   7¡ô      preview    ı£Ø      "]     ü™‚X      click       Kı±      $this      ﬂb+      post   ›–¯&      _csrf      t—\«      gfm    π©±”      context    à3¿µ      text   Fâ      .tab.segment[data-tab="    •`       "] textarea    &⁄õ      val    ~ˇıx      $previewPanel      ‘„X      html   Ví°      emojify    ªúÊÏ      run    28É•      pre code   ü‡˚Å      block      –7Wﬂ      hljs   O%wÃ      highlightBlock     Äç≈S      buttonsClickOnEnter    p<ƒU      previewFileModes    `Ùç       initEditPreviewTab!     ’¨&      $previewTab"    êÓç      preview-file-modes#     y¸’S      initEditDiffTab$    8§Bë      diff%   4W»      content&    ?≈∞.      $diffPreviewPanel'      $ø      initEditForm(   
+X»è
+      .edit.form)     xMyπ      initCommentForm*    6då‚      .comment.form+      ÈP·è      $list,      ’⁄©      .ui.labels.list-    h¯ˆ	      $noSelect.      *>Új
+      .no-select/     BhÃÔ
+      $labelMenu0     · ög      .select-label .menu1    FL$v      hasLabelUpdateAction2   	‡Ï      action3     üˇc9      update4     –      updateIssueMeta5    Jßc2      .item:not(.no-select) .octicon:not(.octicon-check)6     »I·°      &nbsp;7     cì[      .item:not(.no-select)8      7ÑÉz      hasClass9   »:0ó      checked:    ˆ+      removeClass;    ÙZjà      .octicon<   f£-=      octicon-check=       ãR
+      update-url>     vﬂY…      detach?     Bå|      addClass@   
+nqà      attachA     V•ûP      labelIdsB   ˛Ë˘2      parentC     ¡øö_      id-selectorD    üvÙ}      hideE   !—È>      .no-select.itemF    ±/}Ó      clearG      
+M.®
+      selectItemH     Üyc	      select_idI      g◊S∞      input_idJ   ˝„q      $menuK      ±dfO       .menuL     DSsL      .uiM    ‘(>`      .listN      ·Uô£      hasUpdateActionO    íñ«$      selected activeP    >ü˛      #milestone_idQ      †Œıq	      .selectedR      åìv      <a class="item" href=S      ª©`X      hrefT   ÓÜƒé      </a>U   Œ(ú-      #assignee_idW   ˆ—      avatarX     øZ4w      .list .no-selectY   <ø|      .select-milestoneZ      vyæ      .select-assignee[   Å≤      initRepository\     ˜Ü—∆      .repository]    _õ±±      initFilterSearchDropdown^    _l$      selector_   nÌ·"	      $dropdown`      âòCl      dropdowna   4®$T      fullTextSearchb     t®$ä      onChangec   ”ó§V      $choiced    ¯2áâ      windowe     0+QA      locationf   ˛Q1      consoleg    =X˚      logh    ´[uA	      noResultsi      SqÁ
+      no-resultsj     ]>      .repository.file.listk      ùUïí      .repository.commitsl    ∏¨É      .choose.reference .dropdownm    -„˜∑      .reference.columnn      ®%Ü∑!      .choose.reference .scrolling.menuo      >ü      cssp    e}ü      displayq    ,Ω      noner   ÷>ÓC      .choose.reference .texts    ≈P≠m      blackt      4wXˆ      .textu      °â4U      .repository.wiki.viewv      )πÜ      .choose.page .dropdownw     
+(sò      .repository.settings.optionsx   ò›˝t
+      #repo_namey     KH`      keyupz      ºÂ¥      $prompt{    û°∂      #repo-name-change-prompt|   RâDo      toLowerCase}    Â‡⁄^	      repo-name~      HáíK      show   0Ä#      .repository.settings.branchesÄ      §óÿK      .protected-branches .dropdownÅ      ÕÍ'%      .enable-protection, .enable-whitelistÇ      Á˛¡      changeÉ     ûzÉw      disabledÑ   ?2Öó      .repository.labelsÖ     ∆ó®M      $newLabelPanelÜ     ÖÄí      .new-label.segmentá     é¬      .new-label.buttonà      Ù%{ù      .new-label.segment .cancelâ     Á†-      .color-pickerä      Â3…°
+      minicolorsã     í≈úµ      .precolors .colorå      éØ¯	      color_hexç      qØ(	      color-hexé      $dgã      .minicolors-swatch-colorè   b Y      background-colorê   WçŸ=      .edit-label-buttonë     ﬂÄM|      #label-modal-idí    Ûä¡/      .edit-label .new-label-inputì   “E      titleî      PJ‚P      .edit-label .color-pickerï      Ï
+ó      colorñ      ⁄‡      .edit-label.modaló       ∫˚      modalò      ~”m˚	      onApproveô      q•ãë      .edit-label.formö   dÙ∂      submitõ     ﬂƒ≥]      .repository.milestonesú     ﬁÁ}#      .repository.new.milestoneù      æ5ˆà      $datepickerû    îa      .milestone.datepickerü      £@©€      datetimepicker†     +~,      lang°   Tünì      inline¢     ™¬ä'
+      timepicker£     Z]_ê	      startDate§      ‘¯Ÿ:
+      start-date•     à‘m}
+      formatDate¶     π"ëª      Y-m-dß      ¿2±a      onSelectDate®   ¢o(	      #deadline©      D~1ü
+      dateFormat™     ìH>A      #clear-date´    é`Æ      .repository.view.issue¨     ¯V˜¶      $issueTitle≠    Hé7      #issue-titleÆ   1ÄNª
+      $editInputØ     †L7      #edit-title-input∞      C;≠-      editTitleToggle±    Ogµ      toggle≤     ∞c6+      .not-in-edit≥   Ø0`‚      .in-edit¥   KÃÌ      focusµ      =!Êx      #edit-title∂    ËÎj      #cancel-edit-title∑     ®ˇó      #save-edit-title∏   NGÊi      .edit-contentπ      q\≥      $segment∫   ÀLXa      $editContentZoneª   —≥      .edit-content-zoneº     ﬁ∏–      $renderContentΩ     ûq      .render-contentæ    ÅCú       $rawContentø    Â´a»      .raw-content¿   ﬂA	      $textarea¡      ≤2ó`      #edit-content-form¬     ÷ŸÓ      textarea√   ˚L∞      $editContentFormƒ   .¸ﬂ      .ui.comment.form≈   A¢Ωê      attr∆   £s‚M
+      data-write«     ¬Í‰      data-preview»   É      .write.item…    ZeJ#      data-tab    åºG      .preview.itemÀ      êÑ…8      .write.segmentÃ     ß˙yΩ      .preview.segmentÕ   A gÆ      .cancel.buttonŒ     ∆◊%ã      .save.buttonœ   »˛Ë‚      #no-content–    ΩXm      .delete-comment—    :}»@      confirm“    ˙ä„
+      comment-id”     *N∑∆      remove‘     mû      $statusButton’      8†ﬂg      #status-button÷     ï≈B      #comment-form .edit_area◊   Ì^ﬁ6      status-and-commentÿ     §‰ƒç      #statusŸ    ÓÔäJ
+      status-val⁄     √°A      #comment-form€      ∆V«j      .repository.diff‹   	>      $counter›   UûÖA      .diff-counterﬁ      ˝ÑÃ∫      itemﬂ   ﬂ;Ë0      $item‡      «	Tê      addLine·    ë„x)      span[data-line].add‚    _·A      delLine„    àL´      span[data-line].del‰    B/≤d
+      addPercentÂ     ‘	      .bar .addÊ      ÎƒJ˚      widthÁ      _˘g[      .diff-file-box .lines-numË      í„Î
+      hashchangeÈ     ˇ˛uú!      .diff-file-box .lines-code.activeÍ      å®Px      activeÎ     yá¥n      hashÏ   ∂´pﬂ
+      ^#diff-.+$Ì     Ã–òs      siblingsÓ   p       .lines-codeÔ    ˘!p¬      trigger    Å˙–/      #repo-clone-sshÒ    ◊ÛZå
+      .clone-urlÚ     ¸IÎ’      linkÛ   „⁄êº      #repo-clone-urlÙ    õ‹!k      blueı   ¶Ê{≥      #repo-clone-httpsˆ      ¨@;à      localStorage˜   ßª+À      setItem¯    ß‘"      repo-clone-protocol˘    √≈€      ssh˙    +ÓÉ      https˚      1<Î      select¸     œá˙      .repository.compare.pull˝   nªâ      .choose.branch .dropdown˛   ¸⁄L~      .repository.view.pullˇ      Sûå*      .comment.merge.box input[name=merge_style]     m≈—Ω      create_merge_commit   Njôm      .commit.description.field     F"Å      initWikiForm  ◊¸Íb	      $editArea     tﬂ0#      .repository.wiki textarea#edit_area   √·ßÄ	      SimpleMDE     ÌÜÕ      autoDownloadFontAwesome   Ù•o	      forceSync     6j]+      previewRender	     ◊M	      plainText
+     3AtŸ
+      setTimeout    Q√:	      innerHTML     .#éN      <div class="markdown">    ©è^      </div>    œñ|      .editor-preview   cvn˝
+      Loading...    †‰T§      renderingConfig    Ì7,      singleLineBreaks  L˘_      indentWithTabs    m ÷J      tabSize   QôB       spellChecker  3Á(Ò      toolbar   OYQ[      bold  
+ª€)      italic    ﬂ.,      strikethrough     øﬂÕ6	      heading-1     îr'\	      heading-2     MÏ^˙	      heading-3     Áﬁ      heading-bigger    ålbY      heading-smaller   ähc)      code   =m´      quote      xò‡      unordered-list!    ZJl       ordered-list"  µ¥â·      image#     ∂dî      table$     }Sm=      horizontal-rule%   „√™      clean-block&   º˝<'
+      fullscreen'    AÀR       simpleMDEditor(    fm≤L      codeMirrorEditor)  lÁaé      endsWith*  ò»      lastIndexOf+   `5j6      getCursorPosition,     U,2ñ      pos-   ÂA¸¨      selectionStart.    l8oi	      selection/     ∏OÄ      document0  E=`[      Sel1   ⁄ËS#      createRange2   ∫>`D	      SelLength3     »íÉz	      moveStart4     –¥ï$	      character5     >Â/      jQuery6    WÖ%À      setSimpleMDE7  †e—Z
+      toTextArea8    YŒ∑      setCodeMirror9     ≈áÙD
+      CodeMirror:    Øπ£      fromTextArea;  cáhT      lineNumbers<   ∆⁄¸      getValue=  Ìˇ
+      initEditor>    “ıá      .js-quick-pull-choice-option?  EGÆ]      commit-to-new-branch@  $_s      .quick-pull-branch-nameA   ˚nH;      .quick-pull-branch-name inputB     “P…ù      propC  èéI;      requiredD  3@       $editFilenameE     Z&)8
+      #file-nameF    ÅÍs{      $sectionG  C9çp      .breadcrumb span.sectionH  >P·I      $dividerI  uUŒ      .breadcrumb div.dividerJ   ≠5      keyCodeK   æ’      lastL  #´,      setSelectionRangeM     !”T˜      partsN     <l)ﬂ"      <span class="section"><a href="#">O    ÙﬁwÕ      </a></span>P   ÂL…2      insertBeforeQ  ˘Ç	{      <div class="divider"> / </div>R    Ñu2      pushS  Y¶	      tree_pathT     ?Ωå¶
+      #tree_pathU    \ì”      #preview-tabV  ~≈÷∫      root-contextW  ﬂY„	      substringX     òπΩã%      .repository.editor textarea#edit_areaY     ø‰ﬂM      markdownFileExtsZ  Ω¢AF      markdown-file-exts[    PΩ8Â      lineWrapExtensions\    Ωì†ö      line-wrap-extensions]  ¥Ï      spec^  0ÂGi	      extension_     ~‘H
+      extWithDot`    |fg∂      previewLinka   *N‘      dataUrlb   ä•∞[      apiCallc   »ˇÈ      .+\.([^.]+)$d  ¸ı‰      infoe  Rc      findModeByExtensionf   lÌ&      a[data-tab=preview]g   œÿ{      mimeh  ⁄Eú¡      indexOfi   V,Ç¡      (.*)\/.*j  éuÑ      $1/k   w»o	      setOptionl     ÓˆB      autoLoadModem  d ?Ç      lineWrappingn  Pºv‘      getJSONo   l]ØÚ      ec-url-prefixp     ≠≈‘÷      editorconfigq  •á\      indent_styler  ∆˛	“	      extraKeyss     R†Â/      Tabt   ·àT¥      spacesu    \óÙy	      getOptionv     7-h˝
+      indentUnitw    6âÎõ      replaceSelectionx  KØr´      indent_sizey   ±ï)‘	      tab_widthz     <2|      initOrganization{  Û√Õø      .organization|     !^@ò      .organization.settings.options}    Y∑%3	      #org_name~     ≠û      #org-name-change-prompt   ı.è      org-nameÄ  äcÃ„	      initAdminÅ     Ú? g      .adminÇ    „I†œ      .admin.new.userÉ   rﬁÏß      .admin.edit.userÑ  `FÈü      #login_typeÖ   Gs      #login_nameÜ   Ûûí
+      removeAttrá    “‹
+      .non-localà    hû€k      .localâ    òê≤
+      #user_nameä    ¯©òﬂ      passwordã  }Y‡	      #passwordå     A∞Ÿ      onSecurityProtocolChangeç  ˇ•M≠      #security_protocolé    5rê⁄      .has-tlsè  kßó      .admin.new.authenticationê     §Ä≥?
+      #auth_typeë    ÛHì      .ldapí     ;]w–      .dldapì    %ÌÆS      .smtpî     â|q¨      .pamï  ïZt      .githubñ   ∫t∂Ô      authTypeó  ˇ®"©      .admin.edit.authenticationò    ®,ß–      .admin.noticeô     ŸTo1      $detailModalö  µNTÙ      #detail-modalõ     ≈o™*      .view-detailú  ù^±∏
+      .content pù    y+¯ÿ      $checkboxesû   Y∫∂„      .select.table .ui.checkboxü    F¨bî      .select.action†    àˇdC
+      select-all°    ÿy*      checkbox¢  è¢ü1      check£     B.ÄΩ      deselect-all§  ±ÜJ%      uncheck•   ZpG      inverse¶   aX/»      #delete-selectionß     ”Ÿë      loading disabled®  ·—∫      ids©   ”1ÍÌ
+      is checked™    ”Fÿ      redirect´  7Ë¢
+      .ui.button¨    ®±V      keypress≠  ∫P˝„      hideWhenLostFocusÆ     òh;      bodyØ  Õv=      parents∞   3àŸî      searchUsers±   `-~;      #search-user-box .results≤     «‚„      $searchUserBox≥    9æg      #search-user-box¥  ß      $resultsµ  S˘π      .results∂  ≈      keyword∑   æd»ê      ajax∏  ﬁ:®      /api/v1/users/search?q=π   DoÄw      dataType∫  .¬      jsonª  …©\9      successº   âOÁù      responseΩ  Û«àä      notEmptyæ  Ñ6¶1      strø   ç K4      <div class="item"><img class="ui avatar image" src="¿  ËÇ◊Õ
+      avatar_url¡    `]_      "><span class="username">¬     /©¬%      username√  ŸÂ°      </span>ƒ   òÄÃé	      full_name≈     ∞ñ$       (∆    ¬Wè[      .results .item«    "c‹è	      .username»     ä(“›      searchRepositories…    ©ô      #search-repo-box .results      äªº      $searchRepoBoxÀ    Ê1‚t      #search-repo-boxÃ  ∆˘É      /api/v1/repos/search?q=Õ   3≤˛ã      &uid=Œ     ˝Ω7£      uidœ   ‰¢Û3N      <div class="item"><i class="octicon octicon-repo"></i> <span class="fullname">–    ®ƒl      </span></div>—     »a€„	      .fullname“     ¬∞JÔ      initCodeView”  Ëºÿ6      .code-view .linenums‘  :…√      .lines-num span’   Ê+4      $select÷   ºÉ"¸      ol.linenums > li◊  ◊°>π      selectRangeÿ   >	≈      filterŸ    Ôb°á      [rel=⁄     ô,Åÿ      shiftKey€  “ÙÙ;      .active‹   ≤Œµo      deSelect›  .È      ^#(L\d+)\-(L\d+)$ﬁ     â!⁄8      .code-view ol.linenums > liﬂ   îä6      $first‡    ﬁY˙
+      html, body·    ìGÎ	      scrollTop‚     $√Á      top„   s4î»	      ^#(L\d+)$‰     •ºù      initUserSettingsÂ  ∏/©Û      .user.settings.profileÊ    èÜK	      #usernameÁ     l‹öe      #name-change-promptË   Ê†QÆ      initRepositoryCollaborationÈ   6)äU      .access-mode.menu .itemÍ   p3ó      initWebhookSettingsÎ   J|˙      .events.checkbox inputÏ    ÄÈz      :checkedÌ  ≥h)–      .events.fieldsÓ    G‡˚ñ      .non-events.checkbox inputÔ    NóÛJ!      .hook.history.list .toggle.button     Y;œ2       .nohighlightÒ     F[™      nohighlightÚ    ›'$      .delivery.button, .redelivery.buttonÛ  ¢Ñ
+      readyÙ     
+ÛœÜ      meta[name=_csrf]ı  æºû·      meta[name=_suburl]ˆ    ÿŒ˜Ä      input[autofocus]˜  ˘åÑc      .time-since¯   ©_4	      poping up˘     óÏo      data-content˙  U5Kx      data-variation˚    ÛBî°      inverted tiny¸     ﬁÿä      .ui.dropdown˝  ·Ãõé      forceSelection˛    9èP      .jump.dropdownˇ    d      onShow     QVíê
+      .poping.up    "wO      popup     µÓ      .slide.up.dropdown    Ã∏
+      transition    õ’øR      slide up  Ä¨—V      .upward.dropdown  î’	ñ	      direction     îΩv9      upward    FJÖ~      .ui.accordion	     ∏˝Y	      accordion
+     üÅª      .ui.checkbox  @‘w?      .ui.progress  Â’øP      progress  P–®ƒ      showActivity  ÙÂl‰      .top.menu .poping.up  ≥my
+      .top.menu .menu.transition    ?Iqõ      visible   uΩ_â      .tabular.menu .item   ±j¯      .tabable.menu .item   ÿÀ+      .toggle.button    ∞;ﬁ      slideToggle   -•n	      $dropzone     &Nn	      #dropzone     2˜§<      filenameDict  â«”      dropzone  —RoÃ
+      upload-url    ¨yòü      headers   VÑÅ      X-CSRF-Token  ©∫c	      maxFiles  ≈S˝z      max-file  ≥ßß      maxFilesize   ⁄<’      max-size   £âû      acceptedFiles!     »˜X      accepts"   -…ââ      */*#   ÚÉ      addRemoveLinks$    e>      dictDefaultMessage%    l‰ô      default-message&   0æUﬂ      dictInvalidFileType'   CÈõ      invalid-input-type(    »Ôû∏      dictFileTooBig)    ìëôÍ      file-too-big*   §–Ø      dictRemoveFile+    :OÜ      remove-file,   íu`      init-  …«=      file.  g‡      uuid/  Nt7a      <input id="0   AyIù      " name="files" type="hidden">1     ïÜöM      .files2    ‹B-      append3    ëö∑      removedfile4   B{Lå
+      remove-url5    $ö@	      setConfig6     Ñﬂÿ      img_dir7   ¸Yé°
+      /img/emoji8    ^»á      ignore_emoticons9  5Æ¥M      hasEmoji:  ˇÂ¿      getElementsByClassName;    ûΩ”|	      has-emoji<     µI‘≤	      clipboard=     7€“v      ClipboardJS>   =
+      .clipboard?    ¯˘4c      clearSelection@    4>ÙE      getAttributeA  ŒÛ˝      destroyB   ó{⁄D      setAttributeC  ò®ò      data-successD  √<¬Ò      data-originalE     ˛tuW      errorF     Å ó
+      data-errorG    #       #description.autosizeH     ∑zØs      autosizeI  ﬁàò7      #descriptionJ  ú/ã7      showMessageMaxLengthK  Ñàö      descriptionL   +x ÿ
+      descLengthM    :<A      .ajax-load-buttonN     Åºe7      X-AJAXO    l(      requestP   p´ˆ      getResponseHeaderQ     º|\
+      X-AJAX-URLR    c¸““      .delete-buttonS    >=c]      .delete.modalT     ß	z$      closableU  *g“€      formV  ?Â˙      .show-panel.buttonW    ~õ›&      panelX     ÇR9      .show-modal.buttonY    ™ˇÛ~      .delete-post.buttonZ   ãä"'      request-url[   ƒ3~_      done-url\  RA≈â      .submit-button]     KõR      .enable-system^    %∂¸B      .enable-system-radio_  ˛˝ùd      enable`    7ÖR      disablea   ¬±Ï	      .markdownb     7Éá§      h1, h2, h3, h4, h5, h6c    &`°›      noded  (©wŒ"      [^\u00C0-\u1FFF\u2C00-\uD7FF\w\- ]e    ˆÆiP      [ ]f   —Íc      wrapg  l‡åÔ	      <div id="h     ¶.ºS      " class="anchor-wrap" ></div>i     ¢òë      <a class="anchor" href="#j     W:†Ë0      "><span class="octicon octicon-link"></span></a>k  Í√Òﬁ      getIteml   ﬂoÅÇ      routesm    ˇ…Å      div.user.settingsn     å “%      div.repository.settings.collaborationo     ”ï~≤      div.webhook.settingsp  ≈Õ
+      changeHashq    ˇjh      historyr   –∆Í8	      pushStates      „qˆ      getSelectiont  êNs      removeAllRangesu   ∏™˝      emptyv     n5|      $fromw     ¨Êí‹      relx   6ôfÿ      substry    uw˝      classesz   9E-o      .L{    x°Z      #L|    J7Ì      .user.signin}  ][∆
+      areYouSure~    ßOeπ
+      getByteLen    M∂3@	      normalValÄ     `ÃÉK      byteLenÅ   (=S:
+      charCodeAtÇ    ˜èÜe      maxLenÉ    –Ç‡D
+      textElemIdÑ    ∆&¥î	      counterIdÖ     Ø0<      $msgÜ  ‘2       onMessageKeyá  €õÕX      lenà   '·ãÏ	      remainderâ     ù∫”      keydownä   xWRs"      ><img class="ui avatar image" src=ã    Ær{      -Lå    ı˙:â      initCommentPreviewTab/<ç   Œ™˛      initCommentPreviewTab/</<é     ËﬁV;      initCommentPreviewTab/</</<è   ˛Iç      initEditPreviewTab/<ê  9?Y      initEditPreviewTab/</<ë    72      initEditPreviewTab/</</<í  uA∂ü      initEditDiffTab/<ì     ud±      initEditDiffTab/</<ï   K[Àù      initCommentForm/<ñ     ±≠U      initCommentForm/</<ò   8µLÿ      initCommentForm/selectItem/<ô  ¯~ç      initCommentForm/selectItem/</<ú    ü9˘ó      initRepository/<†  Ç1–ú      initRepository/</<°    ±Qá‰      initRepository/</</<¢  $¥OÁ      initRepository/</</</<§    Å`Ä      initWikiForm/previewRender/<•  ÑßJ¶      initWikiForm/previewRender/</<¶    Ü4ò˘      String.prototype.endsWithß     ≥ÎW€      $.fn.getCursorPosition©     cÑ<      setSimpleMDE/previewRender/<™  xΩ;·      setSimpleMDE/previewRender/</<´    ÉÚS      setCodeMirror/<¨   @Z      initEditor/<≠  w1c@      initEditor/</<Ø    i@ûÛ      initOrganization/<∞    ^!P      initAdmin/<≤   ⁄˚      initAdmin/</<≥     Ä[„      buttonsClickOnEnter/<¥     ¡ÄsÒ      hideWhenLostFocus/<µ   .6Î6      searchUsers/<∏     íZœ      searchUsers/</success/<π   wˇ      searchRepositories/<º  œﬁ6‘      searchRepositories/</success/<Ω    K?l      initCodeView/<æ    ∫ôIñ      initUserSettings/<ø    ‘îÿ      initRepositoryCollaboration/<¿     û÷q∂      initWebhookSettings/<¡     ıW—q      initWebhookSettings/</<¬   »\àz      initWebhookSettings/</</<√     –“M∆      init/<ƒ    >}–      onApprove/<     õ   D  õ   õ          +   Ô%,â                                                                                                                                                                         	      	           
+      
+                                                                                                                                                                                                                                                                                                                                                                                                 !                 "                 #                 $      $           %                 &                 '                 (                 )      )           *                +      +           ,      +           -      -           .      .           /                0      0           1                 2                 3                 4                 5                 6                 7                 8                 9                 :                 ;      ;          <      <           =      =           >                 B      ?          C      @           D      A           E                 F      C           G                 H      E           I      E          J      G           K      E           L      I           M      J           N                  O      L           P                 Q      N           S      N           R      N           T      N           U      N           V      N          W      T           X      T           Y                  Z      W           [                 \      Y           ]                 ^      [          _      \          `      ]           a      ]           b      ]           c      [           d                 e      b          f      c          g      d           h      d           i      d           j      b           k                  l      i           m      i           n                  o      l           p                  q      n           r                  s      p           t      p           u      p           v      s          w      t           x      p          y      v           z                  î                  ï                  ñ                  ò                 ô      |           ö                  ?                 @                 A                 {      Å           |      Å           }      Å           ~      Å                 Å           Ä      Å           Å      á           Ç      á           É      Å           Ñ      Å           Ö      Å          Ü      å           á      Å          à      é           â      è           ä      Å           ã      Å           å      Å          ç      ì           é      Å           è      Å           ê      Å           ë      Å          í      ò           ì                  ó      ≥Oåc          ê  ê6 êË ê  #  êp ê~ ê   ê» ê' ‰ ê= ê8 ê( ∞ ê     ê◊ ê'  êz ê  ‹ ê[  êÍ ê“ êÄ ê)  ê≠ êJ ê               P  P                l               	                 i                  P  P!                  l               	                 i                   P  P                l               	  &                                +  P-  P/  P1  P4  PG               ÿ  2  ç              H  PI  PJ  P+  PN  P              l                 l                 l                 l                 l                 A  Pl                 l                 l                 l                 l                 ]  Ö  Pù  ¨  PÆ  P∞  ‘  P‹              ^  _                 ﬁ  c                l                 z  l                 l                                                 l                 å  l                 l                                                                               l                	                π  ∫  Pº  Pæ  ¿  P√    l                                                	               i                    Pl                                 l                               i  ﬁ  ﬂ  ‡  ‚  ‰                l               e  m                l                 l                 l                 l                   P             	 P
+  P                             	                P             	 P
+  P                             	                P              Ç                 D P PY P[ P              l               e  F H ﬁ  M Pi  S l                i  n               e    m    ] ^ _ ` a b d ﬁ               p              t                               z  l                 å Pñ ô Pù P                              l                 ñ l                 l                 l                   P® Pl                 l                                               e  l                Æ PB  P            e  §                 ≤ P¥ P                P∂ l                º Ω P  P             æ              i  ﬁ                l                                    P¥ P                P∂ l               º Ω   P             æ              i  ﬁ                l                                               e  ’ +  l               e  m  +  ﬂ                               z  l                                 J  l                                 l                 l                 l                   Pl                                   Pl                                Î                              +  ’ v a  b  c  y i               Ä i  c              Ç PÉ Ñ PÖ Ü             e  Ö   á à l               R  d  l                $ `˚                ï , 0 2 l                  P P9 i  < l ^                l                 l                                                 l                 l               - 	  ‚                -              e               e                  Pl               	  ò  O ÿ                  Pl                                	                l                 l                   Pl                                 l                 l                 l                  Pl                 c   $  l                   Ø¬0∞Ï      c     i    ›     „     d    e    IÙ$KEÆ˙ö                                   
+     %           2  ç       a  b          h          ò          †  °  ¢  £  •  ß     
+      ì           %            	   -      n                                    	   -      n                                            ;                s    
+       ®        ÿ  π ª       ÿ  π ª         Œ                   ˝    
+     2  ˇ                                   ˇ            7    ÿ       # $ & ( * ,           
+     -      
+    6 8    
+    ÿ          N    
+     T ò     
+      ç                         m n o á&’™ç!´!õ   ∏    ∏   W                         —   µ   G   h   J   ÷h    µ   s ÷µ     µ!   o ÿG"   €h#   s ÷µ     h$   s ÷üE0@(@Ä ø0000`Pï@Ä … `PFÄ ÿ%PDÄ Ö`P+P/PDÄ ‘`P+PDÄ P ÿ   ÿ   É                         ∏   ÿG   €   o ≈   ÷∏   ÿG   €   o ÿG   €s  ÷∏   ÿG   €   ∏   ÿG   €   o %   %o ÿG	   €h
+   s ÷µ    s  ÷ü0 `Pë P9 `Pë 	P*P4 `P<ñ (P*ˇˇˇ›P? PD  `P:P       ∞                        ’ƒ  ÷µ    ∑  o ƒ   ÷µ   ÿG   €∑   ÿG   €   o 6   µ   9      9	   ∑   ÿG   €
+   o 9
+   ∏   ÿG   €   ∏   ÿG   €   o %   %o ÿG   €o  9   h   s ÷ü6 `P*P8 `P<ê P35 
+: 
+: 
+ê P8 
+L
+ñ 3PJ	 PJ PM PD P  ÿ   ÿ   Å                        ∏   ÿG   €   ∏   ÿG   €   o %   %o ƒ   ÷∑   ÿG   €∂  s ÷µ   ÿG   €∑   Hs ÷µ	    
+   ∑   Ho ÿG   €h   s ÷ü0 `P<ñ 1PJ $PH 
+`P.P4 
+`Pí P4 
+`Pë P/PD	 P    D   D                            µ   ÿG   €∂ s ÷ü0 `P/P4 
+P   ,  ,  «                        ∏   ÿG   €   o ≈   ÷∏   ÿG   €   o ÿG   €s  ÷∏   ÿG   €   ∏   ÿG   €   o %   %o ƒ   ÷∑   G	   îK   ë   ≤
+   ∑   ÿG   €   o ÿG   €   o ¬
+   ÷∑   ÿG   €h   s ÷ë   ü0 `Pë P9 `Pë 	P*P4 `P<ñ "PJ PH `Pì0 `Pï P/P9 `Pê PI"P     ¶                        ’ƒ  ÷µ    ∑  o ƒ   ÷µ   ÿG   €∑   ÿG   €   o 6   µ   9   ∑   ÿG   €   o 9   ∏   ÿG	   €
+   ∏   ÿG   €   o %   %o ÿG   €o  9   h   s ÷ü6 `P*P8 `P<ê P35 
+: 
+ê P8 
+L	ñ 3PJ PJ PM PD P   ÿ   ÿ   Å                        ∏   ÿG   €   ∏   ÿG   €   o %   %o ƒ   ÷∑   ÿG   €∂  s ÷µ   ÿG   €∑   Hs ÷µ	    
+   ∑   Ho ÿG   €h   s ÷ü0 `P<ñ 1PJ $PH 
+`P.P4 
+`Pí P4 
+`Pë P/PD	 P    D   D                            µ   ÿG   €∂ s ÷ü0 `P/P4 
+P   »   »   y                         ∏   ÿG   €   o ≈   ÷∏   ÿG   €   o ÿG   €s  ÷∏   ÿG   €   ∏   ÿG   €   o %   %o ÿG	   €h
+   s ÷ü0 `Pë P9 `Pë 	P*P4 `P<ñ (P*ˇˇˇ›P? PDP  ‰   ‰   é                        ’ƒ  ÷µ    ∑  o ƒ   ÷µ   ÿG   €∑   ÿG   €   o 6   µ   9   ∏   ÿG   €	   ∏   ÿG   €
+   o %   %o ÿG   €o  9   h   s ÷ü6 `P*P8 `P<ê P35 
+: 
+Lñ 3PJ PJ
+ PM PD P  §   §   ]                        ∏   ÿG   €   ∏   ÿG   €   o %   %o ƒ   ÷∑   ÿG   €∂  s ÷µ   ÿG   €∑   Hs ÷ü0 "`P<ñ 1PJ (PH 
+`P.P4 
+`Pí P4 P ¨   ¨   W                          µ       o G   î   ë    úë   µ    µ       o s ÷µ    µ       o s ÷ü0 `P+Pî0 `PAF `Pë P#ˇˇˇˇP4 `Pë P#ˇˇˇˇP4P       H                         h   ≈   ÷h   ƒ   ÷µ       o G   î   ë    úë   µ    µ       o s ÷µ       o ≈   ÷∏   ÿG   €	   o ≈   ÷µ    
+   o ≈   ÷∏   ÿG   €   o    ≈   ÷∏   ÿG   €   o ÿG   €h   s ÷∏   ÿG   €   o ÿG   €h   s ÷∏   ÿG   €   o ÿG   €h   s ÷∑          s ÷∑          s ÷üï0 `P+Pî0 `PAÄ  ØF `Pë P#ˇˇˇˇPD `P+P9 `Pë P9 `P+P9 `Pë PO `P<%P? PD `Pë P/PDQ `Pë P/PDÄ  ≠ `P/
+P4 `P/
+P4P  p   p   3                         µ   ÿG   €∂  6   µ   9   ∂ 9   ∂ 9   s ÷ü0 `Pî0 : 8 H PD P   X   X   $                        ’ƒ   ÷µ    ∑   o ÿG   €   s ÷ü6 `P*P/P4 P    `  `  ^               F        ’ƒ   ÷µ    ∑   o ÿG   €   o î∫   ë   µ    ∑   o ÿG   €   s ÷µ    ∑   o ÿG   €   o ÿG   €   o ÿG   €	   s ÷∏  îI   ë   ∏   ∏  ÿG
+   €   o    µ    ∑   o ÿG
+   €   o s ÷ë   ì∞   ë   µ    ∑   o ÿG   €   s ÷µ    ∑   o ÿG   €   o ÿG   €   o ÿG   €   s ÷∏  îI   ë&   ∏   ∏  ÿG
+   €   o    µ    ∑   o ÿG
+   €   o s ÷ë-      ≈   ÷µ    ∑   o ÿG   €o  ÿG   €   o ÿG   €h   s ÷∏   G   î$   ë8   ∏  ÿG   €   s ÷ì   ë:   ∏  ÿG   €   s ÷ë<   µ    µ    ∑   o ÿG   €o  ÿG
+   €   o o ÿG   €∏   s ÷úü6 `P*P/P= `P*P/P4 `P*P:%	P:%	P:%	P4 
+`P? `P6ë P35*
+P/PC Pì@0 `P*P/P4 `P*P:%	P:%	P:%	P4 
+`P? `P6ë P35*
+P/PC PI `P; `P*P: P:%P? PD) `Pñ0 `Pë 
+P>0 `Pë 
+PI. `P6*P: 	P:%	PC. PJ2%P4 `P1 Q    @  @  ‘                        ’ƒ   ÷µ    ∑   o ÿG   €   o îr   ë   ∏   µ    ∑   o ÿG   €   o    %%≈   ÷µ    µ    ∑   o ÿG   €   o o ÿG   €	   s ÷ì?   ë   µ    µ    ∑   o ÿG   €   o o ÿG
+   €	   s ÷ë   ü6 `P*P/P= 
+`P/P/P7 
+`Pê P/P#ˇˇˇ˜P/P>0 
+`Pê P/P#ˇˇˇ˜P/PI P    t  t  Ò                        ’ƒ   ÷∏   î2   ë   ∏    ∏   ÿG   €   o       s ÷ë   µ    ∑   o ÿG   €o  ÿG   €   o ÿG	   €h
+   s ÷∏   ÿG   €   o ÿG	   €h   s ÷∏   ÿG   €   s ÷µ    µ    ∑   o ÿG   €o  ÿG   €   o o ÿG   €   s ÷ü6 `P? `Pó P-ˇˇˇÙPI `P*P: P:%P? PD `Pë P/PD `Pë 
+P4 `P6*P: 	P:%	PC PJ%P4 P   §   §   _                        ’ƒ   ÷µ    ∑   o ÿG   €   s ÷µ    ∑   o ÿG   €   o ÿG   €   o ÿG   €   s ÷ü6 `P*P/P4 `P*P:%P:%P:%P4 P X   X   $                        ’ƒ   ÷µ    ∑   o ÿG   €   s ÷ü6 `P*P/P4 P          £                         µ    ∏      %o ≈   ÷µ       ∏   %   %o ≈   ÷∏   ÿG   €   o    ≈   ÷∏   ÿG   €	   o ÿG
+   €h   s ÷∏   ÿG   €   o ÿG
+   €h   s ÷ü0 `Pë P9 `Pó P9 `Pë PO `Pë P/PD. `Pë P/PD> P      9               J        ’ƒ   ÷µ    ∑   o ÿG   €o  ÿG   €   o ÿG   €h   s ÷µ    ∑   o ÿG   €   s ÷∏   îI   ë   ∏   ∏   ÿG	   €
+   o    µ    ∑   o ÿG	   €   o s ÷ë   ∏   ÿ   ô    ë   ÿ   ô~   ë   ö  ë   ∏   ÿG   €   o ÿG   €   µ    ∑   o ÿG	   €   o %   %µ    ∑   o ÿG   €o  %   %s ÷ìí   ë&   ∏   ÿG   €   o ÿG   €   µ    ∑   o ÿG	   €   o %   %µ    ∑   o ÿG	   €   o %   %µ    ∑   o ÿG   €o  %   %s ÷ë<   µ       ∏   %   %o ÿG   €   s ÷µ    ∏   o ÿG   €µ    ∑   o ÿG	   €   o s ÷ü6 `P*P: 	P:%	P? 	PD `P*P/P4 
+`P? `Pó Pí P/P#ˇˇˇŸPI `P±00 
+`P<%PJ5*P/P46*P*P4F PD 
+`P:0 
+`P<%PJ5*P/P4F *P/P46*P*P4F PI& `Pó P/)P4 `P+Pî P/P#ˇˇˇÙP4 P X   X   $                        ’ƒ   ÷µ    ∑   o ÿG   €   s ÷ü6 
+`P*P/P4 P    T  T  ﬂ                        ’ƒ   ÷µ    ∑   o ÿG   €o  ÿG   €   o ÿG   €h   s ÷∏   î2   ë	   ∏   ∏   ÿG   €   o 	   	   s ÷ë   ∏   ÿG   €
+   o ÿG   €	   s ÷∏   ÿG   €   o ÿG   €   s ÷µ    ∏   o ÿG   €	   s ÷ü6 `P*P: 	P:%	P? 	PD 
+`P? `Pó P-ˇˇˇ˘PI `Pë P/P4 `Pë P/P4 `P+P/P4 P   X   X   $                        ’ƒ   ÷µ    ∑   o ÿG   €   s ÷ü6 
+`P*P/P4 P    H  H  ÿ         
+       æ        h   ƒ   ÷µ       o G   î   ë    úë   µ       o G   ó   ë
+   ÷   G   ë   î6   ë   ∑       s ÷µ       o ÿG	   €h
+   s ÷ë   µ       o G   î   ë   ∑       s ÷ë   µ       o G   î(   ë   µ       o ÿG   €h   s ÷ë!   µ       o G   î6   ë&   ∑       s ÷µ       o ÿG   €h   s ÷ë+   µ       o G   î¥   ë0   µ       o ≈   ÷µ       o ÿG	   €h   s ÷µ       o ÿG	   €h   s ÷µ       o ÿG   €h   s ÷µ       o ÿG	   €h    s ÷µ    !   o ÿG	   €h"   s ÷ëF   µ    #   o G   î   ëK   µ    $   o G   îü   ëP   µ    %   o ƒ  ÷∑  ÿG&   €6'   ∑  ÿG(   €)   o 9)   9*   9+   ∑  ÿG(   €,   o 9-   .   9/   h0   91   s ÷µ    2   o ÿG	   €h3   s ÷ëc   µ    4   o G   î4  ëh   µ    5   o ≈   ÷µ    6   o ÿG7   €8   o ≈   ÷h9   ƒ  ÷µ    :   o ÿG	   €∑  s ÷µ    ;   o ÿG	   €∑  s ÷µ    <   o ÿG	   €∑  o ÿG	   €h=   s ÷µ    >   o ÿG	   €h?   s ÷µ    @   o ÿG	   €hA   s ÷µ    B   o ≈   ÷µ    C   o ÿG   €hD   s ÷∏   ÿG	   €hE   s ÷ëå   µ    F   o G   îõ   ëë   µ    G   o ƒ  ÷∑  G   î   ëñ   ∑  ÿG   €hH   s ÷ëò   µ    I   o ÿG	   €hJ   s ÷µ    µK   o ÿGL   €M   hN   o ÿGO   €M   s ÷ë£   µ    P   o ÿG	   €hQ   s ÷µ    R   o ÿG	   €hS   s ÷µ    T   o ÿG	   €hU   s ÷µ    V   o G   î   ë¥   ∑    W   s ÷ëµ   µ    X   o G   î(   ë∫   µ    Y   o ÿG   €hZ   s ÷ëæ   ü: `P+Pî0 `PAÄ YF0 `P+Pï0õ00 `P*PD `P+P/PI$ `P+Pî0 `P*PI) `P+Pî0 `P+P/PI> `P+Pî0 `P*P4 `P+P/*PIJ `P+Pî@L `P+P9 `P+P/PDP `P+P/PDT `P+P/PDW `P+P/PD\ `P+P/PIp `P+Pî@r `P+Pî0 `P+P8 `Pê0 ê P8 6 6 ê P8 : Jt PD~ `P+P/PIÄ  Ö `P+Pî00 `P+P9 `P+P/P9 `PJÄ  ë `P+P.P4 `P+P.P4 `P+P:$P? PDÄ  ≠ `P+P/PDÄ  ¸ `P+P/PDÄ 	 `P+P9 `P+P/PDÄ  `Pë PIÄ  `P+Pî0 `P+P8 `Pï0 `Pê 	PIÄ & `P+P/PDÄ , `P+P:*PJÄ 6%P9000 `P+P/PDÄ A `P+P/PDÄ H `P+P/PDÄ M `P+Pî0 `P*P90 `P+Pî0 `P+P//PIÄ YP  §   §   X                        µ    ∂  o ƒ   ÷∑   ÿG   €6   9   h   9   6   ∑   ÿG   €	   o 9
+   9   s ÷ü0 `P)P8 `Pê0 6 J %ê PM PD
+ P   Ñ   Ñ   E                  
+       µ   G   ∂ ÿG   €   o J   ÷µ   ÿG   €∂ ÿG   €   o s ÷ü0 `Pô P9 `Põ P#ˇˇˇÙP4 P      ∞                        ’ƒ   ÷µ       o ÿG   €      s ÷µ       o ÿG   €   s ÷µ    µ    ∑   o ÿG	   €
+   o o ÿG   €      s ÷µ    ∑   o ÿG   €   o ÿG   €   s ÷úü6 `P+Pî &P4 `P+P/P4 `Pê P/P#ˇˇˇ˜Pî P4 `P*P:%	P:%	P4 `P1 Q     ≠                        ’ƒ  ÷µ       o ƒ   ÷µ    ∑  o ÿG   €o  ÿG   €o  ÿG   €o  µ    ∑  o ÿG   €   o ÿG   €o  ÿG   €o  î   ë   ∑   ÿG   €s  ÷ì   ë   ∑   ÿG	   €s  ÷ë   ü6 `P+P80 `P*P: P: P: P3*P:%P: P: P>0 `P+P>0 `P+PI P  Ï   Ï   ì                        ’ƒ   ÷∑   G   îD   ë   µ    µ    ∑   o ÿG   €   o o ÿG   €   s ÷ì?   ë
+   µ    µ    ∑   o ÿG   €   o o ÿG   €   s ÷ë   ü6 
+`Pì0 `Pê P/P#ˇˇˇ˜P/P>0 `Pê P/P#ˇˇˇ˜P/PI P  @   @                             ∏   ÿG   €s  ÷ü0 `P,P4 P  @   @                             ∏   ÿG   €s  ÷ü0 `P,P4 P  P   P                           ’ƒ   ÷µ    ∑   o ÿG   €s  ÷ü6 `P*P*P4 P ∞   ∞   g                        ’ƒ  ÷µ    ∑  o ÿG   €   o ƒ   ÷µ       o ÿG   €∑   s ÷µ       o ÿG   €   ∑   s ÷ü6 `P*P/P8 `P+P.P4 `P+Pì P4 P  ∞  ∞                 (        ’ƒ   ÷µ       o ÿG   €µ    ∑   o ÿG   €   o s ÷µ       o ÿG   €µ    ∑   o ÿG   €   o s ÷µ       o ÿG   €µ    ∑   o ÿG   €	   o s ÷µ    
+   o ÿG   €   µ    ∑   o ÿG   €	   o s ÷µ       o ÿG   €6   h   9   o ÿG   €   s ÷úü6 `P+Pî P/P#ˇˇˇÙP4 `P+Pî %P/P#ˇˇˇÙP4 `P+Pî "P/P#ˇˇˇÙP4 `P+P:5*P/PC $PD `P+P:5 
+J	 	PJ%	P4 `P1 Q  L   L                             µ       o ÿG   €s  ÷ü0 `P+P*P4 
+P  d   d   ,                         µ       o ÿG   €∂  ÿG   €   o s ÷ü0 `P+Pô P#ˇˇˇ˘P4 P X   X   !                          µ       o ÿG   €   s ÷úü0 `P+P/P4 `P1 Q  Ã   Ã   n                          ∏   ÿG   €s  ÷µ       o ÿG   €s  ÷µ       o ÿG   €s  ÷µ       o ÿG   €s  ÷∏   ÿG   €s  ÷úü0 `P,P4 `P+P*P4 `P+P*P4 `P+P*P4 `P,P4 `P1 Q   H  H  “                        ’ƒ   ÷∏   ÿG   €o  G   ó*   ë   ÷∏   ÿG   €o  ∏   ÿG   €o  ë
+   î+   ë   ∏   ÿG   €∏   ÿG   €o  s ÷úë   µ   ÿG   €µ    ∑   o ÿG   €   o 6   µ	   9
+   ∏   ÿG   €o  9   h   s ÷úü60 
+`P,Pï0,P/Pì00 
+`Pò P#ˇˇˇP4 
+`PA F	 `P<*
+P/P35 : ,PM	 
+PD `P1 Q    l   l   1                         ∏   ÿG   €∂  G   s ÷∏   ÿG   €∂  G   s ÷ü0 `Pî P4 `Pî P4 
+P    §  §  <               \        ’ƒ  ÷µ    ∑  o ÿG   €o  ÿG   €o  ÿG   €o  ÿG   €o  ƒ   ÷∑   ÿG   €   o ≈   ÷∑   ÿG   €   o ≈   ÷∑   ÿG   €   o ƒ  ÷∏   ÿG   €o  G	   î  ë   ∏   ÿG   €µ    
+   o ÿG   €o  s ÷∑   ÿG   €   o ≈   ÷∏   ÿG   €   o ƒ  ÷∑  ÿG   €   o ƒ  ÷∑  ÿG   €   ∏   ÿG   €   o s ÷∑  ÿG   €   ∏   ÿG   €   o s ÷∑  ÿG   €   o ÿG   €   ∏   ÿG   €   o s ÷∑  ÿG   €   o ÿG   €   ∏   ÿG   €   o s ÷∑  ÿG   €   o ÿG   €   ∏   ÿG   €   o s ÷∑  ÿG   €   o ÿG   €   ∏   ÿG   €   o s ÷µ    ∑  s ÷∏   ÿG   €   o ÿG   €h   s ÷∏   ÿG   €   o ÿG   €h   s ÷ì#   ëK   ∑   ÿG   €   o ≈   ÷ëM   ∏   ÿG   €s  ÷∏   ÿG    €s  ÷∏   ÿG!   €o  G	   î(   ëV   ∏   ÿG!   €∑  ÿG"   €o  s ÷ëZ   ∏   ÿG#   €s  ÷úü6 `P*P: 	P: 	P: 	P: 	P8 `Pê 	P9 `Pê 	P9 `Pê 	P8@ 
+`P,Pî0 `Pó P*P#ˇˇˇ„P4 `Pê PI `Pë P8 `Pê P8 `P° -P#ˇˇˇ‹P4 `P° /P#ˇˇˇ⁄P4 `P;%P:ñ -P#ˇˇˇﬁP4 `P;%P:ñ -P#ˇˇˇﬁP4 `P;%P:ñ -P#ˇˇˇﬁP4 `P;%P:ñ -P#ˇˇˇﬁPD" `P*PD$ `Pë P/PD( `Pë P/PN@0 `Pê PNE `P,P4 `P,P4 
+`P,
+Pî0 `Pó P#ˇˇˇPIJ `P,
+P4 `P1 Q    X   X   !                          ∏   ÿG   €s  ÷∏   ÿG   €s  ÷ü0 
+`P,P4 
+`P,P4 P  ‡   ‡   Ü                          ∏   ÿG   €s  ÷∏   ÿG   €s  ÷µ   ÿG   €∏   ÿG   €   o 6   µ   9	   ∏   ÿG
+   €o  9   ∏   ÿG   €   o 9   h   s ÷ü0 
+`P,P4 
+`P,PD 
+`P<ë P35 : ,P8 ë PM PD P         †                         ∂  G   î7   ë   ∏   ÿG   €µ       o ÿG   €o  s ÷ì^   ë	   ∏   ÿG   €∂  G   s ÷µ   ÿG   €∏   Hs ÷µ       ∏   Ho ÿG	   €h
+   s ÷ë   ü0 `Pî0 `Pó P*P#ˇˇˇÍP>0 `Pî P4 `Pì P4 `Pí P/ PI
+ P   D   D                            µ   ÿG   €∂ s ÷ü0 `P/P4 P   ‰   ‰   ä                        ’ƒ   ÷µ    ∑   o ≈   ÷µ    ∏   ÿG   €   o o îL   ë   µ   ÿG   €∏   ÿG   €   o 6   µ   9	   o ÿG
+   €h   s ÷ë   úü6 `P*P9 
+`Pó P#ˇˇˇ˘P= `Pù P8 
+J 
+PO PI	 `P1 Q  h   h   /                          µ       ∏   ÿG   €   o %o ÿG   €s  ÷ü0 
+`Pú P$ˇˇˇÛP*!P4 P  ÿ   ÿ   Ü                        ’ƒ   ÷µ    ∑   o ÿG   €o  G   î3   ë   ∏   ÿG   €∏   ÿG   €   o s ÷ì.   ë   ∏   ÿG   €∏   ÿG   €   o s ÷ë   ü6 
+`P*P*Pî0 `Pù !P#ˇˇˇÌP>0 `Pù !P#ˇˇˇÌPI P å   å   G                  
+        µ       o ÿG   €∏   ÿG   €   o s ÷µ       o ÿG   €s  ÷ü0 `P+Põ P#ˇˇˇÓP4 `P+P*P4 P   $  $  æ          	              µ    ∂ o ƒ   ÷∑   ÿG   €   o ÿG   €   o ƒ  ÷∑   ÿG   €   o ÿG   €   o ƒ  ÷µ    ∑  o µ    ∑  o µ    ∑  o %*d)ƒ  ÷∑   ÿG   €   o ÿG	   €
+   ∑     %s ÷ü0 `P)P8 `Pê P/P8 `Pê P/P80 `P*
+P-P-P58 `Pê Pô P4 P    §   §   d                        ’ƒ   ÷µ    ∑   o ÿG   €   o î<   ë   µ   G      µ    ∑   o ÿG   €   o %J   ÷ë   ü6 
+`P*P/P= `Pô P/PO P   ‘   ‘   É                        µ       o ÿG   €   s ÷µ   G   G   ÿG   €g	   o ƒ   ÷∑   î8   ë
+   µ    ∑   Ho ÿG
+   €   o ÿG   €   s ÷ë   ü0 `P+P/&P4 `Põ P8 `P> 
+`P,P:%P:%PI P  8  8  ∆                        ’ƒ   ÷µ       o ÿG   €µ    ∑   o ÿG   €   o s ÷µ       o ÿG   €µ    ∑   o ÿG   €   o s ÷µ    ∑   o ÿG   €	   s ÷µ    
+   o ÿG   €	   s ÷µ   ÿG   €      s ÷ü6 `P+Pî P/P#ˇˇˇÛP4 `P+Pî P/P#ˇˇˇÙP4 `P*P/P4 `P+P/P4 `Pñ P4 P    8  8  ∆                        ’ƒ   ÷µ       o ÿG   €µ    ∑   o ÿG   €   o s ÷µ       o ÿG   €µ    ∑   o ÿG   €   o s ÷µ    ∑   o ÿG   €	   s ÷µ    
+   o ÿG   €	   s ÷µ   ÿG   €      s ÷ü6 `P+Pî P/P#ˇˇˇÛP4 `P+Pî P/P#ˇˇˇÙP4 `P*P/P4 `P+P/P4 `Pñ P4 P    P   P                           ’ƒ   ÷µ    ∑   o ÿG   €s  ÷ü6 `P*P*P4 P º   º   o                        ’ƒ   ÷µ    ∑   o ÿG   €o     î(   ë   µ       o ÿG   €s  ÷ì#   ë
+   µ       o ÿG   €s  ÷ë   ü6 
+`P*P*Pì0 `P+P*P>0 `P+P*PI P    (  (  Ç                         µ       o ≈   ÷∏   G   î\  ë   µ   |6   9   ∏   H9   9   h	   9
+   6   9   9   9   9   9   c      d       d      d      d      d      d      d      d      d      d	      d
+      d      d      d      d      d      d      d       d   !   d      d   "   d   #   d   $   d   9%   ⁄  } ÷ë   ü0 `P+P9 `Pñ0 `P; 6 < 6 J 5 K 6 7 6 5 : : : : : : : : : : : : : : : : : : : : : : : ì@ I>P  P   P                            µ    h   s ÷   úü@ `PKA PD `P5 Q ∞   ∞   f                          µ   ÿG   €∏  ÿG   €   o 6   µ   9      9	   ∏  ÿG   €
+   o 9
+   ∏   9   h   s ÷ü@ 
+`P<ë P35 : : ë P8 O PD P   x   x   ;                  	       ∏      ∂  %   %J   ÷µ   ÿG   €µ       o Hs ÷ü0 `Pö0 `Pó P%ˇˇˇ¸P4 P   Ä   Ä   K                       ’ƒ  ÷∑  G   ∂  G   &ƒ   ÷∑   ñ!   ë   ÷∑  ÿG   €∂  o ∑   ë   úü6 
+`Pó0 `Pü P=Q   D   D                            ∏   G   h   J   ÷ü0 `Pï@P    x  x  ˚         	               ’ƒ  ÷∏    ∑  o ÿG   €o ƒ   ÷ƒ  ÷   ∑   !î   ë   ∑   G   ƒ  ÷ì•   ë      µ   !îê   ë	   ∑   ÿG   €s  ÷µ   G   ÿG   €o  ƒ  ÷µ   G   ÿG   €o  G   G   ƒ  ÷∑  ÿG	   €
+   ∑   G   G   s ÷∑  G   G   ∑  &ƒ  ÷ë   ∑  úü6 `P*P+P8 `P6 `Pî0 `Pò0 `Pï0 `P+P4 `Pë P8 `Pë Pí0 `Pê /ˇˇˇÈP4 `Pù@ `P4 Q L  L  ë                        µ   î&   ë   µ   ÿG   €s  ÷≤   ¬   ÷ë   µ   î   ë	   úë	   ≤   µ   |6   9   ∏   H9   9   6	   9
+   9   9   9   9   h   9   c      d       d      d      d      d      d      d      d      d      d	      d
+      d      d      d      d      d      d      d       d   !   d      d   "   d   9#   ⁄  } ¬   ÷úü0 `P? `P,P4 `Pë@ `P? `PADF
+ `Pê0 6 < 6 5 K 6 7 6 J) 5 : : : : : : : : : : : : : : : : : : : : : ì@
+ PIC `P1Q   P   P                            µ    h   s ÷   úü@ `PKA PD `P5 Q ∞   ∞   f                          µ   ÿG   €∏  ÿG   €   o 6   µ   9      9	   ∏  ÿG   €
+   o 9
+   ∏   9   h   s ÷ü@ `P<ë P35 : : ë P8 O 
+PD P   x   x   ;                  	       ∏      ∂  %   %J   ÷µ   ÿG   €µ       o Hs ÷ü0 `Pö0 `Pó P%ˇˇˇ¸P4 
+P   Ù   Ù   è                         µ   î&   ë   µ   ÿG   €s  ÷≤   ¬   ÷ë   µ   î   ë	   úë	   ≤   µ   ÿG   €∏   H6   9   o ¬   ÷µ   ÿG   €	   h
+   s ÷úü0 `P? `P,P4 `Pë@ `P? `PAF
+ `Pù0 F
+  PI `Pñ PD `P1Q   T   T                            ∏   ÿG   €∂  ÿG   €o  s ÷ü0 `Pñ P#ˇˇˇ˘P4 P  å  å                           µ       o ÿG   €h   s ÷µ       o ≈   ÷∏   ÿG   €h   o ÿG   €   s ÷µ    	   o ≈   ÷∏   G
+   ï   ë    úë   ∏   ÿG   €   o ÿG   €   o ≈   ÷∏   ÿG   €   o ÿG   €   o ≈   ÷∏   ÿG   €   h   o ÿG   €   s ÷ü0 `P+P/!PD `P+P9 `Pë0 PJF%PDH `P+P9 `Pî `PAÄ  ØFK `Pë 
+P/P9 `Pë 
+P/PIN `P<*PJÄ  Æ%P4P      ≠                        ’ƒ   ÷µ    ∑   o ÿG   €o     îG   ë   µ       o ÿG   €s  ÷µ       o ÿG   €   s ÷ìB   ë   µ       o ÿG	   €s  ÷µ       o ÿG   €   s ÷ë   ü6 `P*P*Pì0 `P+P*P4 `P+Pê "P>0 `P+P*P4 `P+Pê "PI P  4  $  •               ~      ’ƒ  ÷µ       o ƒ   ÷µ       o ƒ  ÷∂  G   î   ë   µ    ∑  o ÿG   €o  î›   ë   ∑   G   î»   ë   ∑   ÿG   €o  ÿG   €	   o ÿG
+   €o  ƒ  ÷µ    ∑  o ÿG   €∑  µ    ∑  o ÿG   €o  %s ÷µ    ∑  o HÿG   €∑  G   ∑  G   s ÷∑   ÿG   €o  ÿG   €s  ÷∑  ÿG   €o  ÿG   €s  ÷ë.   ∂  G   ø îK  ë1   µ    ∑  o ÿG   €o  ÿG   €   o ≈   ÷ƒ  ÷í7   ∑  ∏   G   î˙   ë:   ∏   ∑  Hƒ  ÷∑  ∏   G   &î~   ë?   ∑  G   îa   ëA   µ       ∑  %   %o ÿG   €µ    ∑  o s ÷µ       o ÿG   €µ    ∑  o s ÷ëO   ì&   ëO   µ    ∑  o ÿG   €∑  s ÷ëS   µ    ∑  o HÿG   €s ÷∑  .'ƒ  ÷ìˆ˛ˇˇëZ   c    ≈   ÷µ       o ÿG   €h   s ÷µ    ∑  o ÿG   €o  î1   ëd   ∏   ÿG   €µ    ∑  o ÿG   €o  s ÷ëj   ∏   ÿG   €   o ƒ  ÷µ       o ÿG   €∑  s ÷µ       o ÿG   €   µ       o ÿG   €   o ∑  ÿG   €∑  ÿG   €   o %o %s ÷ü6 `P+P8 `P+P8 
+`Pï0 `P*P*P? `Pï0 `P; P:%P: P8 `P*Pò P*P$ˇˇˇÏP4 `P*Pû 
+P4 `P+	P*P4 `P+	P*PI 
+`Pñ0 `P*P: P:%P9  `P&fPô0 `P? `Põ0 `Pì0 `P6ê@ PJ*P#ˇˇˇÛP4 `P+Pî 0P#ˇˇˇÛPì@0 `P*P.PI! 
+`P*P.
+PD *`Pï@$ `P; `P+P/PD- 
+`P*P*P= `Pñ P*P#ˇˇˇÛPI1 `Pë P8 `P+P.P4 `P+P:5+P/P3ú +P%ˇˇˇÈPD3 PD8 P    4         Ñ    ‰   ‰   ä                         µ    ∂ o √ ÷∂ ÿG   €   o G   î;   ë   ∏   ÿG   €∂ ÿG   €   o ÿG   €o  s ÷ì'   ë   ∏   ÿG   €∂ ÿG   €o  s ÷ë   ü0 `P)
+P7 `P/Pí0 
+`Põ P*
+P#ˇˇˇÈP>0 
+`Pñ P#ˇˇˇÛPI P ∏  ∏  c                Y       ∏   ÿG   €o  ƒ   ÷   ƒ  ƒ  ÷g   ÿG   €∑   o ƒ  î.   ë   ∑  HÿG   €o  ƒ  ÷   ∑  %ƒ  ÷ë	   µ   ÿG   €∑  o ƒ	  ÷µ	    
+   o ƒ  ÷∑	  î4   ë   ∑	  G   ƒ  ÷∑	  G   ƒ  ÷∑  ƒ  ÷ì   ë   ∑  ƒ  ÷ë   ∑  G   ñT   ë   ÷∑  ñE   ë   ÷µ   ñ5   ë   ÷µ   G   ñ    ë   ÷µ   ÿG   €∑  o ë   îg   ë   ∑  ÿG   €   o ƒ  ÷∑  ÿG   €   ∑  ÿG   €g      ∑  %o s ÷∑  ÿG   €s  ÷ì   ë'   ∑  ÿG   €s  ÷ë)   ∏   ÿG   €∑  o î$   ë-   µ    ∏   o î   ë0    úë0   µ   ñ   ë3   ÷µ    ∏   o ë6   î   ë7    úë7   ∑  î<   ë8   µ   ÿG   €   ∑  s ÷µ   ÿG   €µ   ∑  s ÷ë?   ∏   ÿG   €∑  o î%   ëC   µ   ÿG   €   s ÷ì    ëF   µ   ÿG   €   s ÷ëI   ∏   ÿG   €o  ƒ
+  ÷∑
+  G   î   ëN    úëN   ∑
+  ÿG   €   o ƒ
+  ÷∑
+  ∑
+  G   &Hƒ
+  ÷µ	   ÿG   €∏   ÿG   €    o ∑
+  %h!   s ÷ü0 `P,PH
+ `P> `Pê Pë0 `P-P8 `Pî@ `Pê P8 `P+P8 
+`P> `P> `P> `Pì00 `PN0 `Pî0?ê0ï0ê Pî00 `Pê P8 `P™  P#ˇˇˇÏP4 `P+P>0 `P+PI) 
+`Pê P? `P+P= 
+`PA^ F0 
+`Pë +Pì0 `PA^ F4 
+`P> `Pï P4 `Pï PI9 
+`Pê P? `Pí P>0 `Pí PI@ `P,P8 
+`Pï0 `PA^ FD `Pê P8 `Pï@G `Pù P-ˇˇˇÍPD^ P \  \                           ∂  G      î?   ë   µ   ÿG   €   s ÷µ   ÿG   €   6   s ÷ìD   ë
+   µ   ÿG   €   s ÷µ   ÿG   €   6   h	   9
+   s ÷ë   µ   ÿG   €   ∂  G   ó   ë   ÷ë   s ÷µ   ÿG   €   ∂  G   ó   ë   ÷ë   s ÷ü@0 `Pò0 
+`Pí P4 
+`Pñ P>0 
+`Pí PD 
+`Pñ0 J PI `P´ P4 `P´ P4 P ò   ò   M                        µ    µ    ∂  ÿG   €   o o %o ÿG   €   o ƒ   ÷∂  ÿG   €∑   s ÷ü0 `Põ P#ˇˇˇÙP%ˇˇˇˇP:E KPH `P.P4 P  ¥   ¥   i                          µ       o G   î   ë    úë   µ       o G   î(   ë
+   µ       o ÿG   €h   s ÷ë   ü0 `P+Pî0 `PAF `P+Pî0 `P+P/PIP      ≠                        ’ƒ  ÷µ       o ƒ   ÷µ    ∑  o ÿG   €o  ÿG   €o  ÿG   €o  µ    ∑  o ÿG   €   o ÿG   €o  ÿG   €o  î   ë   ∑   ÿG   €s  ÷ì   ë   ∑   ÿG	   €s  ÷ë   ü6 `P+P80 `P*P: P: P: P3*P:%P: P: P>0 `P+P>0 `P+PI P        %                D        h   ≈   ÷µ       o G   î   ë    úë   µ       o G   ó    ë
+   ÷µ       o G   ë   î(   ë   µ       o ÿG   €h	   s ÷ë   µ    
+   o G   îF   ë   µ       o ÿG   €h   s ÷µ       o ÿG   €∏   s ÷ë    µ       o G   îs   ë%   µ       o ÿG   €o  ƒ   ÷∑      ó   ë+   ÷∑      ë,   î(   ë-   µ       o ÿG   €∏   s ÷ë1   µ       o îå   ë4   µ       o ≈   ÷µ       o ÿG   €h   s ÷µ       o ≈   ÷µ       o ÿG   €h   s ÷µ       o ÿG   €h   s ÷ëD   ü; `P+Pî0 `PAÄ  ÄF `P+P† "Pô0 `P+P/PI) `P+Pî0 `P+P/PDK `P+P/PIN `P+Pî0 `P+P*P8 `PÆ0 `P+P/PIV `P+P= `P+PIZ `P+P/PDa `P+P9 `P+P/PDo `P+P/PIÄ  ÄP    P  P  í               6        ’ƒ   ÷µ    ∑   o ÿG   €o  ÿG   €o    îÃ   ë   µ       o ÿG   €   s ÷µ       o ÿG	   €s  ÷µ    
+   o ÿG   €s  ÷µ       o ÿG   €s  ÷µ    ∑   o ÿG   €   o    î-   ë   µ       o ÿG   €      s ÷ë"   ìñ   ë"   µ       o ÿG   €      s ÷µ       o ÿG   €s  ÷µ    
+   o ÿG	   €s  ÷µ       o ÿG   €s  ÷µ       o ÿG   €   s ÷ë6   ü60 `P*P: P:"Pì00 `P+P/P4 `P+P*P4 `P+P*P4 `P+P*PD `P*P/Pì0 
+`P+Pî Pì@0 `P+Pî P4 `P+P*P4 `P+P*P4 `P+P*PD `P+P/PI P    ∞   ∞   f                          µ       o ÿG   €o  î(   ë   µ       o ÿG   €s  ÷ì#   ë
+   µ       o ÿG   €s  ÷ë   ü0 `P+P*P? `P+P*P>0 `P+P*PI P  ,  ,  :               B        ’ƒ  ÷µ       o ÿG   €s  ÷µ       o ÿG   €s  ÷µ       o ÿG   €s  ÷µ       o ÿG   €s  ÷µ       o ÿG   €s  ÷µ       o ÿG   €s  ÷µ    ∑  o ÿG	   €o  ƒ   ÷∑   ÿ
+   ôS   ë   ÿ   ôe   ë   ÿ   ôê   ë   ÿ   ô¢   ë    ÿ   ô¥   ë!   öÊ   ë!   µ       o ÿG   €s  ÷ì√   ë%   µ       o ÿG   €s  ÷µ       o ÿG   €s  ÷ìá   ë-   µ       o ÿG   €s  ÷ìd   ë1   µ       o ÿG   €s  ÷ìA   ë5   µ       o ÿG   €s  ÷µ       o ÿG   €s  ÷ì   ë=   ∑   
+   ó   ë?   ÷∑      ë@   î   ëA   ∏    s  ÷ëB   ü6 `P+P*
+P4 `P+P*P4 `P+P*
+P4 `P+P*	P4 `P+P*P4 `P+P*PD `P*P*P8 `P„00 
+`P+P*
+P4 
+`P:0 
+`P+P*
+P4 
+`P+P*P4 
+`P:0 
+`P+P*	P4 
+`P:0 
+`P+P*P4 
+`P:0 
+`P+P*P4 
+`P+P*P4 
+`PJ 
+`PÆ0 `PO  P §   §   Y                
+        ’ƒ   ÷∏   ÿG   €   o ÿG   €µ    ∑   o ÿG   €   o s ÷∏   ÿG   €   s ÷úü6 `Pë Pî P/P#ˇˇˇÛP4 `Pë P4 `P1 Q        Ω                        ’ƒ   ÷µ    ∑   o ÿG   €   o ÿ   ô1   ë   ÿ   ô?   ë   ÿ   ôM   ë   öb   ë   ∏   ÿG   €   s ÷ìC   ë	   ∏   ÿG   €	   s ÷ì$   ë   ∏   ÿG   €
+   s ÷ì   ë   ü6 `P*P/P¿00 
+`Pë P4 
+`P:0 
+`Pë P4 
+`P:0 
+`Pë P4 
+`PJ P    ¸   ¸   õ                        ’ƒ   ÷µ    ∑   o ≈   ÷∏   ÿG   €   s ÷c    ≈   ÷∏  ÿG   €h   s ÷µ   ÿG   €∏   ÿG   €   o 6	   µ
+   9   ∏   9   o ÿG   €h   s ÷ü6 `P*P9 `Pë P4 `P; `Pë PD	 `Pù P8 : J	 PO 	PD P  §   §   ^                        ’ƒ   ÷µ    ∑   o ÿG   €   o î6   ë   ∏   ÿG   €µ    ∑   o ÿG   €   o s ÷ë   ü6 `P*P/P= 
+`Pñ 	P/P#ˇˇˇÛPI P   T   T   %                          µ   G   ∏   ÿG   €   o J   ÷ü0 `Põ P9 P P   P                             µ       o ÿG   €h   s ÷ü0 `P+P/PDP  å   å   T                
+       ’ƒ   ÷∂  G   ó   ë   ÷∂  G    ë   î"   ë   µ    ∑   o ÿG   €s  ÷ë
+   ü6 `P∞@ `P*P*P9 P P   P                            µ    µ   o ÿG   €h   s ÷ü0 `P+P/PDP  ‡   ‡   ä                        ∂  G   ƒ   ÷µ    ∑   o ÿG   €∏   o ñ2   ë   ÷µ    ∑   o ÿG   €o  ÿG   €∏   o ë   î#   ë   µ    ∏   o ÿG   €s  ÷ë   ü0 `P=0 `P*P/
+P? *P: 	P:%	Pì00 `P+P*PI
+ P        †                          µ       o G   ï   ë    úë   µ       o ≈   ÷∏   ÿG   €   o ≈   ÷∏   ÿG   €h   s ÷∏   ÿG   €	   o ÿG
+   €h   s ÷µ          s ÷ü0 `P+Pí0 `PA;F `P+P9 `Pë P9 `Pë PD7 `Pë P/PD: `Pê P4P       ®                        ’ƒ  ÷µ    ∑  o ≈   ÷∏   ÿG   €   o ÿG   €o  ƒ   ÷∑   G   î   ë	   ∏  ÿG   €s  ÷ úë   µ   ÿG   €6   µ	   
+   %∑   %9      9   h   9   s ÷ü6 `P*P9 `Pë P*P8 `Pñ0 `P,	P4 `PA/ F `Pë0 ï0 : J PD/ P T  T  ‡                         h   ≈   ÷∏  ÿG   €   s ÷∂  G   ñ   ë   ÷∂  G   G   ë   îÄ   ë      ≈   ÷µ   ÿG   €∂  G   h	   s ÷∏  ÿG   €∏   s ÷∏  ÿG
+   €   o ÿG   €h   s ÷∏  ÿG   €s  ÷ì   ë   ∏  ÿG   €s  ÷ë   ü0 `PK `Pë 	PD `PØ0 `P; 
+`Pô PD 
+`Pë 	P4 
+`Pë P/PD 
+`P,	P>0 
+`P,	PI" P  L   L                            ∂  ñ   ë   ÷∂  G   ë   úü0 
+`Pù0 Q  »   »   Å                         ∏      ∂ G   %   %∂ G   %   %%≈   ÷∏    ∂ G   o î*   ë
+   ∏      ∂ G   %   %%≈   ÷ë   ∏   	   %≈   ÷ü0 `P559697 `P.P= `PôL
+ `P7 
+P ®   ®   \                        ’ƒ   ÷∏  ÿG   €   o ÿG   €µ    ∑   o ÿG   €   o ÿG   €o  s ÷∏  ÿG   €s  ÷ü6 `Pë P:*P:%P: PC  PD `P,	P4 
+P    @   @                             ∏   ÿG   €s  ÷ü0 `P,P4 P      †                          µ       o G   ï   ë    úë   µ       o ≈   ÷∏   ÿG   €   o ≈   ÷∏   ÿG   €h   s ÷∏   ÿG   €	   o ÿG
+   €h   s ÷µ          s ÷ü0 `P+Pí0 `PA;F `P+P9 `Pë P9 `Pë PD7 `Pë P/PD: `Pê P4P   4  4  √         	               ’ƒ  ÷µ    ∑  o ≈   ÷∏   ÿG   €   o ÿG   €o  ƒ   ÷∑   G   î   ë	   ∏  ÿG   €s  ÷ úë   µ   ÿG   €6   µ	   
+   %∑   %   %∏  ÿG   €   o %9      9   h   9   s ÷ü6 `P*P9 `Pë P*P8 `Pñ0 `P,	P4 `PA/ F `Pë0 05656ë P9 : J PD/ P  T  T  ﬂ                        h   ƒ   ÷∏  ÿG   €   s ÷∂  G   ñ   ë   ÷∂  G   G   ë   îÄ   ë      ≈   ÷µ   ÿG   €∂  G   h	   s ÷∏  ÿG   €∏   s ÷∏  ÿG
+   €   o ÿG   €h   s ÷∏  ÿG   €s  ÷ì   ë   ∏  ÿG   €s  ÷ë   ü0 `PJ `Pë 	PD `PØ0 `P; 
+`Pô PD 
+`Pë 	P4 
+`Pë P/PD 
+`P,	P>0 
+`P,	PI P   L   L                            ∂  ñ   ë   ÷∂  G   ë   úü0 
+`Pù0 Q  P   P   !                         ∏      ∂ G   %   %%≈   ÷ü0 `P5597 
+P º   º   m                        ’ƒ   ÷∏  ÿG   €   o ÿG   €µ    ∑   o ÿG   €   o ÿG   €o  ÿG   €   o Hs ÷∏  ÿG	   €s  ÷ü6 `Pë P:*P:%P: P:%PE  PD `P,	P4 
+P   @   @                             ∏   ÿG   €s  ÷ü0 `P,P4 P  Ã   Ã                             µ       o G   îd   ë   µ    µ   o ÿG   €      h   s ÷µ    µ	   o ÿG   €
+   h   o ÿG   €
+   s ÷ë   ü0 `P+Pî0 `P+Pô PD `P+P:*PJ"%PI$P  4  4  œ                       ’ƒ  ÷µ    ∑  o ƒ   ÷∑   ÿG   €o  ÿG   €   o ÿG   €   o ƒ  ÷µ    ∑  ∑  ÿG   €	   ∑   ÿG
+   €   o %   %o ∂  G   î-   ë   ∑  ÿG   €   o ÿG   €o ì   ë   ë   s ÷µ    s  ÷ü6 `P*P8 `P; 	P:%	P:%	P8 `P64† 'P*ˇˇˇÁP3¢ P+Pì@ PD `P: P      _                .       µ   G   G   ÿG   €g   o ƒ   ÷µ       o ƒ  ÷∑   îà   ë   ∑  ÿG   €	   ∑   H%o ƒ  ÷µ
+    ∑  ∑  ∑  ÿG   €	   ∑   H%o s ÷µ       o ÿG   €∑  ÿG   €o  G   » &s ÷ úë   µ   G   G   ÿG   €g   o ƒ   ÷∑   îk   ë    ∑  ÿG   €	   ∑   H%o ƒ  ÷µ
+    ∑  ∑  s ÷µ       o ÿG   €∑  ÿG   €o  G   » &s ÷ë.   ü0 `Põ P8 `P+P80 `P> 
+`Pó P8 
+`P¶ !P#ˇˇˇÍP4 
+`P+Pï  P,ˇˇˇÔP4 
+`PA F
+ `Põ P8 `P> 
+`Pó P8 
+`P.P4 
+`P+Pï  P,ˇˇˇÔPI P   ú   ú   X                          µ   ÿG   €   s ÷µ       o G   î(   ë   µ       o ÿG   €h	   s ÷ë   ü0 `Pë PD `P+Pî0 `P+P/PIP      ≠                        ’ƒ  ÷µ       o ƒ   ÷µ    ∑  o ÿG   €o  ÿG   €o  ÿG   €o  µ    ∑  o ÿG   €   o ÿG   €o  ÿG   €o  î   ë   ∑   ÿG   €s  ÷ì   ë   ∑   ÿG	   €s  ÷ë   ü6 `P+P80 `P*P: P: P: P3*P:%P: P: P>0 `P+P>0 `P+PI P  p   p   4                          µ   ÿG   €   s ÷µ       o ÿG   €h   s ÷ü0 `Pë PD `P+P/PDP   ‰   ‰   é         	               ’ƒ  ÷µ    ∑  o ÿG   €o  ƒ   ÷µ   ÿG   €∑   ÿG   €   o 6   µ   9   ∑   ÿG   €	   o 9	   µ    ∑  o ÿG   €
+   o 9   s ÷ü6 `P*P*P8 `Pú P8 : ê P8 *P/PH PD P    –   –   y                          µ       o ÿG   €h   s ÷µ       o ÿG   €h   s ÷µ       o ÿG   €h	   s ÷µ    
+   o ÿG   €h   s ÷ü0 `P+P/PD `P+P/PD `P+P/&PD `P+P/)PD#P    à   à   K                	        ’ƒ   ÷µ    ∑   o ÿG   €   o î#   ë   µ       o ÿG   €s  ÷ë	   ü6 `P*P/P= `P+P*PI P à   à   K                	        ’ƒ   ÷µ    ∑   o ÿG   €   o î#   ë   µ       o ÿG   €s  ÷ë	   ü6 `P*P/P= `P+P*PI P Ä   Ä   B                	        ’ƒ   ÷µ    µ    ∑   o ÿG   €   o    %o ÿG   €h   s ÷ü6 `Pê P/P)ˇˇˇ˜P/+PD P   à   à   A                        ’ƒ   ÷µ    ∑   o ≈   ÷∏   ÿG   €   s ÷µ    h   Ùs ÷ü6 `P*P9 `Pë P4 `PKC PD P    H   H                             µ   ÿG   €∏   Hs ÷ü0 `Pì P4 P  ‘   ‘   }                        ’ƒ   ÷µ    ∑   o ≈   ÷∏   ÿG   €   s ÷µ   ÿG   €∏   ÿG   €   o 6   µ   9	   o ÿG
+   €µ    h   ào s ÷ü6 `P*P9 `Pë P4 `Pù P8 J PJKC PC PD
+ P T   T   %                          µ   G   ∏   ÿG   €   o J   ÷ü0 `Põ P9 P ƒ
+  §
+  Å                      ≤   µ       o ÿG   €   o ¬   ÷≤   µ       o ÿG   €   o ¬   ÷µ       o ÿG	   €h
+   s ÷µ       o ÿG	   €h   s ÷µ       o ÿG   €6   9   s ÷µ       o ÿG   €6      9   h   9   s ÷µ       o ÿG   €6      9   s ÷µ       o ÿG   €6      9   s ÷µ       o ÿG    €s  ÷µ    !   o ÿG"   €s  ÷µ    #   o ÿG$   €6%   9&   s ÷µ    '   o ÿG(   €s  ÷µ    )   o ÿG(   €6*   h+   9   s ÷µ    ,   o ÿG-   €s  ÷µ    .   o ÿG-   €s  ÷µ    /   o ÿG0   €h1   s ÷µ    2   o ≈   ÷∏   G3   îJ  ëV   64   ≈   ÷∏   ÿG5   €66   ∏   ÿG7   €8   o 99   6:   µ   9;   9<   ∏   ÿG7   €=   o 9>   ∏   ÿG7   €?   o 9@   ∏   ÿG7   €A   o B   î   ëj   ì   ëj   ∏   ÿG7   €A   o ël   9C   9D   ∏   ÿG7   €E   o 9F   ∏   ÿG7   €G   o 9H   ∏   ÿG7   €I   o 9J   ∏   ÿG7   €K   o 9L   hM   9N   s ÷ë|   µO   ÿGP   €6Q   µ   R   %9S   9T   s ÷µU   ÿGV   €W   o ƒ   ÷ƒ  ÷íá   ∑  ∑   G3   î5   ëä   µO   ÿGX   €∑   ∑  Hs ÷∑  .ÿ'ƒ  ÷÷ìºˇˇˇëê   µY   |Z   ⁄  } ƒ  ÷∑  ÿG[   €\   h]   s ÷∑  ÿG[   €^   h_   s ÷µ    `   o G3   î9   ëõ   µa    µ    b   o s ÷µc     d   e   s ÷ë°   µ    f   o ÿG0   €hg   s ÷µ    h   o ÿG0   €hi   s ÷µ    j   o ÿG0   €hk   s ÷µ    l   o ÿG0   €hm   s ÷µ    n   o ÿG0   €ho   s ÷µ    p   o ÿG0   €hq   s ÷µ    r   o ÿGs   €ht   s ÷µ    u   o ÿGs   €hv   s ÷µ    w   o ÿG	   €hx   s ÷µy    s  ÷µz    s  ÷µ{    s  ÷µ|    s  ÷µ}    s  ÷µ~    s  ÷µ    s  ÷µÄ    s  ÷µÅ    s  ÷µÇ    s  ÷µÉ    s  ÷µ    Ñ   o G3   î®   ë‡   µÖ   ÿGÜ   €á   o ÿà   ô   ë‰   öV   ë‰   µ    â   o ÿG0   €o  G3   î#   ëÎ   µ    ä   o ÿG0   €s  ÷ëÔ   ì(   ëÔ   µ    ä   o ÿG0   €s  ÷ì   ëÛ   6ã   µå   9ç   µé   9è   µê   9ë   ƒ  ÷∑  [í˚   \]ïK   ë¸   ƒ  µ    ∑  o G3   î   ë  ∑  ÿ∑  H€s  ÷ì   ë  ÷ì≤ˇˇˇë  ^ü0 `Pê P/P9 `Pê 	P/PI `P+P/PD
+ `P+P/PD `P+P? F PD `P+P? : J PD `P+P? J PD `P+P? J PD" `P+P*P4 `P+P*P4 `P+P? F$ PD' `P+P*P4 `P+P? J( PD/ `P+P*P4 `P+P*PD2 `P+P/PD7 `P+P9 `Pñ0 `P; `Pë0 ë P8 %? ë P8 ë P8 0ë PØ -P= 6 ë P8 ë P8 ë P8 ë P8 J: PI^ `Pë0 ê0 F^ 
+PDb `Pë 	P8  `P&fPò0 `Pï PDc '`Pó@h `Pó0 `Pï 
+PDx `Pï 
+PDÄ  Ü `P+Pî0 `Pë 	P#ˇˇˇˇP4 `Pì P9000 `P+P/PDÄ  § `P+P/PDÄ  ∫ `P+P/P400 `P+P/P400 `P+P/PDÄ  … `P+P/PDÄ  Œ `P+P/PDÄ  ÷ `P+P/PDÄ  › `P+P/PDÄ  ¸ `P: `P: `P:0 `P: `P: `P: `P: `P: `P: `P: `P:00 `P+Pî0 `Pë Pû00 `P+P*Pî0 
+`P+P*P90 `P:0 `P+P*P4 `P:000 `P5 : : ?000 `Põ0 `P*Pî0 `P+P4 `PJÄ  LÄ $P   ƒ
+         “  I         '  S   t   t   6                        ’ƒ   ÷µ    ∑   o ÿG   €µ    ∑   o ÿG   €o  s ÷ü6 `P*Pî P*P#ˇˇˇÙP4 P    ¿   ¿   w                        ’ƒ   ÷µ    ∑   o ÿG   €   o ÿG   €   µ    ∑   o ÿG   €   o o ÿG   €      o ÿG   €   	   s ÷ü6 `P*P:%P:/P/P#ˇˇˇ„P:*P:*P4 P   P   P                             µ       o ÿG   €   s ÷ü0 `P+P/P4 P h   h   /                          µ       o ÿG   €   o î   ë   úë   ü0 
+`P+P/P= `PA V   t   t   9                        ’ƒ   ÷µ    µ    ∑   o ÿG   €   o o ÿG   €ds ÷ü6 `Pê P/P#ˇˇˇ˜P,P4 P t   t   9                        ’ƒ   ÷∑   ÿG   €   h   s ÷∑   ÿG   €   h   s ÷ü6 `Pï PD `Pï PD P  ¥   ¥   i                        ∏   ∂  G   ∂ G   L÷µ       ∂ G   %   %o ÿG   €∂ G   o ƒ   ÷µ       o ÿG   €∑   s ÷ü0 
+`Pó0 `P6î@ PJ(P8 
+`P+P.P4 P    D  D  ‚                         ∂  G   ∏   !î2   ë   µ       ∏   ∂  G   H%o ÿG   €s  ÷ë
+   ∏   ÿG   €   o ñ   ë   ÷∏   ÿG   €   o ë   î_   ë   µ   ÿG   €∏   ÿG   €   o 6	   ∏   ∂  G   H9
+   ∏   ÿG   €   o 9   s ÷ë   ü0 `Pò0 `Pö P* PI `Pë 
+Pü  Pí0 `Pù P8 ì0 ë PH PI
+ P  P  P  Ÿ                         ∂  ÿG   €s  ÷µ       ∂  G   ÿG   €   o %o ÿG   €   s ÷∂  G   ÿG	   €
+   ∂  G   ÿG   €   o s ÷µ       ∂  G   ÿG   €   o %o ÿG   €   s ÷∂  G   ÿG	   €
+   ∂  G   ÿG   €   o s ÷ü0 `P*PD `Pü P$ˇˇˇÔP/%P4 `P?5î PC PD `Pü P$ˇˇˇÔP/%P4 `P?5î PC	 PD P   8  8  À                         µ       ∂  G   ÿG   €   o %o ÿG   €   s ÷∂  G   ÿG   €	   ∂  G   ÿG   €
+   o s ÷µ       ∂  G   ÿG   €   o %o ÿG   €   s ÷∂  G   ÿG   €	   ∂  G   ÿG   €   o s ÷ü0 `Pü P$ˇˇˇÔP/%P4 `P?5î PC PD `Pü P$ˇˇˇÔP/%P4 `P?5î PC PD P  ÿ   ÿ   Ä                        ’ƒ   ÷µ    ∑   o ≈   ÷∏   ÿG   €   s ÷µ   ÿG   €6   ∏   ÿG   €   o 9   6   	   9
+   9   o ÿG   €h   s ÷ü6 `P*P9 `Pë PD `Pë0 ë P8 5 O PO	 PD P   Ï   Ï   è                        µ    ∂  o ÿG   €∏   s ÷∂ ÿG   €   o ƒ   ÷∑   î=   ë   ∏   ÿG   €   ∑   s ÷∏   ÿG   €   s ÷ì   ë   ∏   ÿG	   €s  ÷ë   ü0 `P)P/PD `P/P8 
+`P> `Pï P4 `Pë P>0 `P,PI P   ®   ®   Y                        ’ƒ   ÷µ    ∑   o ≈   ÷µ       o ÿG   €6   9   h   9   o ÿG   €   s ÷úü6 `P*P9 `P+P:5 6 J PJ%P4 `P1 Q        Ø                          ∏   ÿG   €   o    î4   ë   µ    ∏   ÿG   €   o o ÿG   €s  ÷ úë
+   µ   ÿG   €∏   ÿG   €   o 6   µ	   9
+   ∏   ÿG   €   o 9   o ÿG   €h   s ÷ü0 `Pë Pì0 `Pó P#ˇˇˇ˘P*P4 `PA F 
+`Pù P8 : ë 
+PH PO	 PD P    H   H                            µ   G   ∂  G   J   ÷ü0 `Pò0 
+P    t   t   7                        ’ƒ   ÷µ    µ    ∑   o ÿG   €   o o ÿG   €s  ÷ü6 `Pê P/P#ˇˇˇ˜P*P4 P   x   x   <                        ’ƒ   ÷µ    µ    ∑   o ÿG   €   o o ÿG   €   s ÷ü6 `Pê P/P#ˇˇˇ˜P/P4 P  §   §   \                        ’ƒ   ÷µ    ∑   o ≈   ÷µ   ÿG   €∏   ÿG   €   o 6   µ   9   o ÿG   €h	   s ÷ü6 `P*P9 `Pù P8 J PO PD P    T   T   %                          µ   G   ∏   ÿG   €   o J   ÷ü0 `Põ P9 P t   t   7                        ’ƒ   ÷µ    µ    ∑   o ÿG   €   o o ÿG   €s  ÷ü6 `Pê P/P#ˇˇˇ˜P*P4 P   8  8  …                        ’ƒ   ÷∑   G   îD   ë   µ    µ    ∑   o ÿG   €   o o ÿG   €   s ÷ìu   ë
+   µ    µ    ∑   o ÿG   €   o o ÿG   €   s ÷µ    µ    ∑   o ÿG   €   o o ÿG	   €   s ÷ë   ü6 `Pì0 `Pê P/P#ˇˇˇ˜P/P>0 `Pê P/P#ˇˇˇ˜P/P4 `Pê P/P#ˇˇˇ˜Pê PI P      ß                        ’ƒ   ÷µ    µ    ∑   o ÿG   €   o o ÿG   €   s ÷µ    µ    ∑   o ÿG   €   o o ÿG   €   s ÷µ    µ    ∑   o ÿG   €   o o ÿG	   €
+   s ÷ü6 `Pê P/P#ˇˇˇ˜P/P4 `Pê P/P#ˇˇˇ˜P/P4 `Pê P/P#ˇˇˇ˜Pê P4 P    |   |   >                        ’ƒ   ÷6   ≈   ÷µ    ∑   o ÿG   €   o ÿG   €h   s ÷ü6 `P; `P*P:%P? PD P   ¥  ¥  ,        
+       #        ’ƒ  ÷µ    ∑  o ƒ   ÷µ    ∑   ÿG   €o  ÿG   €o  ÿG   €g      o ÿG   €g   	   o o ƒ  ÷∑  ƒ  ÷∏   ∑  Hî$   ë   ∑  	   %∏   ∑  H%ƒ  ÷ë   ∏   ∑  Hµ
+   î   ë   ∏   ∑  L÷ì   ë   ∏   ∑  -ŸH%L÷ë   ∑   ÿG   €   ∑  %   %o ƒ   ÷∑   ÿG   €   ∑  %   %s ÷ü6 `P*P8 `P6; P: P:*P:*PC $PH	 `P9 `Pñ0 
+`Pü@ `Pö0 
+`Pñ00 
+`PH `Põ P8 `P;55F PD P  Ñ   Ñ   G                         µ   G   î$   ë   µ   ÿG   €∂  s ÷ì   ë   µ   ∂  J   ÷ë   ü0 `Pî0 `Pë P>0 `Pì@P   î   î   S                          µ   G   î)   ë   µ   ÿG   €o  ÿG   €s  ÷ì   ë   µ   G   ÿG   €s  ÷ë   ü0 `Pî0 `P,P*P>0 `Pë PIP  à  x  §                -      ∂  ÿG   €   s ÷∂ îS  ë   µ    ∂ ÿG   €   o ÿG   €o o ƒ   ÷µ    ∂ ÿG   €   o ÿG   €o o ƒ  ÷∑   ∑  îÍ   ë   ∑   ∑  î%   ë   ∑   ƒ  ÷∑  ƒ   ÷∑  ƒ  ÷ë   c    ƒ  ÷∑   ƒ  ÷í   ∑  ∑  î5   ë   ∑  ÿG   €   ∑  %s ÷∑  .ÿ'ƒ  ÷÷ì¡ˇˇˇë   ∂  ÿG	   €∑  ÿG
+   €   o o ÿG   €   s ÷µ       ∑   %   %∑  %s ÷ úë&   ∂ ÿG   €   s ÷µ       ∂ ÿG   €   o %s ÷ü0 `P/P4 `P= `Pï P+P#ˇˇˇÎP8 `Pï P+P#ˇˇˇÌP80 `Pì0 
+`Pì0 `P9 `P9 `PN `P:  `P)fPì0 `Pï PD `Pó@ `Pö P#ˇˇˇÒP/P4 `Põ 
+P4 `PAF `P/P4 `Pö P$ˇˇˇÒP4P   à         œ   D   Ä   Ä   @                  	        µ       o G   î   ë    úë   µ       o ÿG   €s  ÷ü0 `P+Pî `PAF `P+P*	P4P  ¿  ∞  >                      µ    ∂  o √  ÷ƒ   ÷ƒ  ÷í   ∑  ∂  G   î  ë   ∂  ÿG   €∑  o ƒ  ÷∑   ∑  Ä î   ë	   ì∞   ë	   ∑   î   ë   ìí   ë   ∑  	  î   ë   ìs   ë   ∑  	   î   ë   ìT   ë   ∑     î   ë   ì4   ë   ∑     Äî   ë   ì   ë   µ   G   ë   %ƒ   ÷∑  .ÿ'ƒ  ÷÷ìÓ˛ˇˇë   ∑   úü@ `P)PG `P6  `P&fPó0 `P.
+P8 `P4í0;í0<ì0<ì0<î0<î0<F (`Pó@ `P4Q  ¿              ÿ   ÿ             	              µ       ∂ %o ƒ   ÷µ       ∏   %o ÿG   €∏   µ    ∑   ÿG   €o  o &s ÷h   ƒ  ÷∑   ÿG   €∑  o ÿG   €∑  s ÷ü0 `P/P8 `Pë P† 0P#ˇˇˇP$ˇˇˇÚPD `PJ `P/P.P4P   ,  ,  º                       ’ƒ  ÷µ    ∑  o ƒ   ÷∑   ÿG   €o  ƒ  ÷µ    ∑  o ƒ  ÷∏   ∑  &ƒ  ÷∑  ∏   î=   ë	   ∑   ÿG   €∑   ÿG   €o  ÿG   €∏   o s ÷ƒ  ÷ë   µ       ∏   %o ÿG   €∑  s ÷ü6 `P*P8 `P+P8 `P*
+P8 `PO `Pî0 `Pñ Pê P#ˇˇˇÒP4 `PK `Pë P.P4 P  3ıÿ  `      `ç     	  
+          $    m     p  `$    	  ÿ     @           ç     ˆ          p  `ç           	  
+        p    `      `ç     	  
+          $    m     p  `$    	  ÿ    @       ç     ˆ          p  `ç           	  
+    ˝     "  ^  ,      p  `ç     	  $          
+  `$    	  ÿ    @     ç     ˆ      %    p	  `ç           	  $      
+  p  `$  (  ˝      #    `$      @     2  ç   `$  :  O    `$  B  ç     m     p?  O  	  =  q   ç P  U  Q    R  S  >    T  ä W  L  X  D      `$  :  O    `$  B  ç   7  m     p	  =  q   Q    .  :  D      `$  K  L  M  	  2  3  ç   7      pE    p  `$    6    `$  8  9  	  ç ,  C  :  D  ?    `$  8  9  :  ç   ;  <    6  	  =  >  ç ?  q   @  B    m     p˝   D      `$  :  9  ç   ;  <    6    `$  ?  D    `	  =  F  q   $  B  ç     m     p  p:  D  ç     `  p  p$  *  ˝     ,  ç   .  0  	  2  3  5  m     p7      pE    pY  P  Z  U    `d  e  	  ÿ  S  f  g    `$  `    @a    pb    @	  i  h      `$  n  o  p  q  r  :  s  	  §    ç   t  ?    `$  {    ≥  |  	  }  ~  D    `9  $  	  §  :  É  ?     `~  !  `D  "  `$  ä  #  `$  	  ç  â    é  o  è  %  `$  ô  ö  $  `$  ë    	  ç í  ì  î  ï  é  o  è  ñ  ó    @%  pò  ~  &  `$  ®    ©  ¶  '  `$  ®    q   (  `±  $  ≤  Ø  ≥  ¥  *  `  ì    )  `  ˝     $    	  =    @     ì  *  p,  `~  D  /  `    .  `˝     $  œ  %        m   /  p-  `~  D  $    	  =  	  @       %    .  p+  `$  B  )  ç   ª  Ω  ø    ˝   ¡  ¬  ƒ    ≈  ∆  	  ˆ  «  
+  »  …     À  Ã    Õ    ,  pŒ  -  p~  D      ¥  1  `$  #  	  “  ”  0  `$  —  	      ÿ  
+  @     c   1  p2  `$    ˝     	  ò  ◊  3  `$  ÿ    	  Ÿ  ⁄  ö  4  `$  ç   ·  	  ˇ   „  P  Â  o  Ê  %  5  `$  ≈  ç d  e  #  S  6  `$  È  :  Í  d  e  Î  Y     PÌ  Ó  ?  7  `$  Ò    	  Ú  Û    ?  Ù  ı  :  ˆ  ˜  ¯  ˘  8  `$  Ò    	  Ú  Û    ?  Ù    :  ˆ  ˜  ¯  ˙  9  `$  ˚  :  `$       ~  D    `  p$  \  ˝   j  k  l  m      pu  v  w  x  y    p  Ä  Å  Ç    pÑ  Ü  á     pà  !  pâ  m   "  pã  #  pê  $  põ  ú  û  ü    @	  †  °  ¢  §  £  ¶  •  &  pß  ™  '  p´  ≠  Ø  ç   ‚   (  pµ  ∂  ∑  )  p∏  +  p–  0  p’  ÷  2  p3  p€  ›  4  pÁ  5  pd   Ë  6  pÔ    7  pı  8  pÛ  9  p¸  ˝  ˛  ˇ  :  p>  `       $   =  `$    	  ÿ    @             >  p<  `
+ =  p ;  `$   ˝      @ n    <  p   @        |           ! Ú  " # $ % 
+  &  B  `       $   A  `$    	  ÿ    @             E  p@  `
+ D  p ?  `( 7 '    @ n      @     C  p    |           ! Ú  " # $ %  D  `  < C  `' 7 ( 9 :   @;  Ç  G  pF  `$    ? @ ~  A B C D  H  `$  ç   a  ˝   R   G  `$  G I J + ˝   K ç   a      L ”  ^  /  N O P Q m   K  pR ˜   T U 	    V W * K  `  Q  u v ˜      w J  `q   ( k  r   @  @N  ps v x  y I  `  q     PÄ   |  .  9 e $  f   g ˝     h 	  ÿ  Z    Pj ~  D  6 ( 8 k l m ^  /  n o M  pE  `$  > Ç  I  pE y  J  pÔ  X ˝   	  Z ^  ,  \  L  pM  `$  ~   ≥  |  	   ~  D  L  `$  { ˝   | } y  P  pO  `$  ç   é ~  D  P  `$    W 0  Ö Ü C á D  à ~  â ¥  	  ä ã ≈  Q  `$  ë D  í ì î ï é   2  3  4  5  6  ~  R  `ç   ú   $  	  %  ó  ~  S  `$  	  2  † £ • ° ¢ § ±  U  `$  ° © R 	  ç V  `d  e  	  ™ S  T  `$  ?  ß m   X  p  	  Ú    @     ® c   Y  pN  `S  p$  Å ˝   Ç É Ñ Ç  R  pè ê T  pç ó   2  5  ò ö õ   U  pû ü V  p¶ W  pX  `J $    W  `$  ´ ¨ [  pZ  `§  $  ú Ø D  Y  `$  /   ]  p^  `˝   _  `ø ¿ ¡ ¬ √ ƒ ≈ )   `  `ç   ‚     $  «   D  ]  `a  p  q    	  ˝   $  m   b  pç   ∆   c  p~  D  \  `$  ç   ‚     ˝   D  ∑   @  ∏ ÿ  ∫ π `  pª a  `y  [  `$  ± ˝   ≥ ç   µ y  _  p‚   ¥  d  p≠ e  `˝   f  `œ ƒ – g  `ç   ‚     $  —   ^  /  D  d  `h  p  q    	  ˝   $  m   i  pç   ∆   j  p~  D  c  `$  ç   ‚     ˝   D  ∑   @  Ã Õ 	  Œ ÿ  ∫ π g  pª h  `y  b  `$  … ˝   À ç   µ y  f  p‚   ¥  k  p≠ j  `$  B  Ì  Ó  ç   ÷ ◊ ÿ Ÿ ≈  ç ]  ⁄ € ö ‹ k  `d  e  Î  Y    P$  ﬁ ÿ .  ◊ ‡ · H  ‚   Pi  `$  ” ˝   /    ‘ m  pd  Ë  n  pÔ  m  `$  Á   ≥  |  	  $  ~  D  l  `f  g  ‰ $  Â ˝   Ê y  p  po  `$  B    	  ÿ    @     Œ ﬁ    n  `f  g  Ë $  È   r  pq  `$  ú Ï Ì ~  r  `$  ú Ï Ì D  u  `    t  `$  :  Ò 
+ x  ps  `$  	  §   m   w  pw  `d  e  	  ™ S  v  `$  ?  ß   	  Ú    @     c   
+ z  pp  `$  Î Ç  t  pÓ u  pÔ   v  pÚ y  px  `q r e  Î  y  `d  s t / . u z  `:  Í  Q  ≈  w x R z ÿ ˜   ,  ?  p { ã #  {  `  ˝   Å   &  }  `$    ~ x #    |  `$  #    ~   ö  py  â ~  `˝   * Ä  `©   - . / ¥  1   ˝   3 4 ﬁ    `◊ A  p+ Ç  `$    É  `$  ?  ¯ ≈  ˘ ì  ˙ ˚ q   Ñ  `$     D  Ö  `$   8   Ü  `$  	  §   à  `$  . $  / 0   1 2 â  `$  $  #  ”  	  4      "  @-   á  ` ª Ç  p3 É  pä  `? $  #  Ô  @ ç  A B ˘ C ~  D ã  `$  #  Ô  @ ç  A B ˘ F ~  D ç  `$  P P Q 	  ÿ  :  É  ”  å  `$  ?  É  ∑ $  @	  ÿ  %  @ª  N  c   á  pê  `d  e  ™ S  è  `	  æ  U $  ö    ÿ  '  @     ç c   ä  pé  `$  S ó  &  @T â  pò  ~  ë  `$  	  W ~  í  `$  	  ó  ~  î  `d  e  	  [ S  ì  `$    	  Z (  @     c   é  pï  `$  	  U ö  ñ  `9  $  	  §  :  É  ?  § B ó  `$  	  _ :  É  ` ?  § B 9  ô  `$  t     |  Z    Pq     P-  ˚  f g h 2 i j ò  `)  @$  ç   b m   ì  pÅ  `   $  Ù ≈  %    ı ˆ m   |  p˜ }  p¸ `    @˝ ˛   @˚  2  ~  pˇ    @     @   	 
+ °     @       @  p       Ä  p ˝     @    @	   ÿ  !  @      ! "   # % $ ' & ) ( + * Å  p,   5 #  @7 6 8 / : ;   = >  ª Ñ  pE Ö  pG H I J K L M Ü  pR à  pV ã  pX å  pY ç  p\ è  p] Ç  ê  p^ ë  pa í  p  ∞ » )  [   '  = z Ä “ Û  ˆ  k ¯  ˘    ı  *  @‰ m Ë n Í o ö  `$  | ˝   U }    `  p  p	  p  p  p  p;  pB  pF  pH  pO  pQ  pZ  p\  p^  pe  pl  po  pq  ps  pî  pï  pñ  pò  pô  p  `  ?  p) @  p5 $  / Û {  pó  pˇXÑ  %              "            †        å     †       ç     †        é     † N             †  >      è     † 1      ê     † .      ë     † v      #      †  g      í     † ^   	   ì     † Å      '      †       )      †  á      4      †  —      ï     † ‡      ï     † ’      ñ     †      ï     † ¯   	   ñ     †      ñ     † √      G      †  ì      ò     † è      ô     † ≥      ò     † Ø      ô     † ^  [   [      †  7     ]      †  /     b      †
+ C     ú     † R  
+   ú     † \     ú     † d     ú     † f     ú     † h     ú     † k  	   ú     † x     ú     † t     ò      †
+ ã     ß      †
+ ë     ú     † ñ     ∞      †
+ °     ú     † ù     †     † Õ  $   ú     † Æ     †     † ø     †     † ¥     °     † ±     ¢     † ˜     ú     † Ò     †     †      ú     †      ú     †      ú     †      ú     † '     ú     † 4     ú     † D     ú     † T     ú     † W     ú     † “  &        †  Œ          †
+ ¡     §     † π     •     † ¢     ¶     † ±             † •     ß     †   $   6     †            †
+       ©     † ¯     ™     † 8     8     †  5     ´     † ¨     =     †  C  
+   ¨     † T     ¨     † M     ≠     † ä  "   ¨     † {     ≠     † s     s     †
+ »     z     †  æ  
+   Ø     † )     Ä     †  ◊     ∞     † –     å     †  È     ∞     † ˘  	   ∞     †      ∞     †      ∞     †      ≤     †      ≤     † I           †  E     ≥     † T     ≠     †  N     ¥     † è     ∞     †  }     µ     † m     ª     †
+ Y     Ω     †
+ [  
+   ∏     † e     ∏     † ç     µ     † —     »     †  º     π     † ¨     ª     †
+ ú     Ω     †
+ û     º     † ¢  
+   º     † œ     π     † ˇ     “     †  ﬁ     Ω     † Ô     Ω     †   
+   ‰     †    
+   æ     † ,     Ë     †        ø     † c     Í     †  4     ¿     † :     ¿     † I     ¿     † C     ¡     † @     ¬     † V     ¿     † P     ¡     † á  í           † µ             † ∏  
+           † ¬     ˇ     †
+ «     ˇ     †
+ Ã             † Ê     ,     †
+ —  	   √     † ⁄     √     † Ï             † ˙             †              †   
+           † 2  	           † $     ò      †
+      ƒ     † ;             † @             † K  
+           † E             † U             † Z  
+           † d             † Ä             † o             † o     p     †  t     ‹     †  {     ◊     †               † å     ~     †  ô  	   J     †  í     Ü     †
+ ùH©¿      ”∫      ”∫                 Ä D   ‡  &   ‡                ˙   ¬  Ú   ¬                  [  ≥  S  ≥                 g  ß  _  ß     7          Ä   
+  ˘  
+  +              Q    I    3                õ  Û  ì  Û  @               ß  Á  ü  Á  F   7          Ä $  Ù
+    Ù
+  O              ◊  
+  œ  
+  T                ˙	  ·
+  Ú	  ·
+  `                 í  ˆ
+  í  k              Ä ¨  ë  î  ë  t                   g  Ë  g  Å              c  ã  [  ã  ç              Ç «  û  ø  û  ê   9            ¡  º  π  º  ±               ‘  Ò  Ã  Ò  ≈   3            à  +  Ä  +  Õ               T  ~  L  ~  ’   %           Ä 
+    ˜    ‡              Ó  P  Ê  P  Â   6            @  Ä  8  Ä  È               É    {      0            Â  %  ›  %               Ä ™  ÈE  ì  ÈE  %               	  J  Ë  J  *  #            Ñ    |    .             -   C!  %   C!  =  )            &"  n#  "  n#  O  "            8$  Ê$  0$  Ê$  e  >             ï%  º%  ç%  º%  r  )             Ò%  &  È%  &  u  2            @&  f&  8&  f&  y  $            í&  >'  ä&  >'  |  )            k'  Y)  c'  Y)  Å  *             ‡(  )  ÿ(  )  ã               Ê*  (+  ﬁ*  (+  ü              T+  ê+  L+  ê+  £  #             r,  --  j,  --  Æ  "            ›-  ‘/  ’-  ‘/  ∫               E/  ´/  =/  ´/  …            Ç "0  y:  0  y:  “  %             ¥5  6  ¨5  6  ˆ  >             E6  &9  =6  &9  ˙  <             ~7  9  v7  9                £8  Ô8  õ8  Ô8    >          Ç ∫:  ø;  ≤:  ø;  !  '             W;  õ;  O;  õ;  &              5<  ˝<  -<  ˝<  /  0              =  á=  =  á=  6                &>  ö?  >  ö?  @             ’?  @@  Õ?  @@  K  1             r@  rA  j@  rA  R              ·A  ”B  ŸA  ”B  _  %            ˝B  ÔC  ıB  ÔC  f  '            D  5D  D  5D  m  %            -E  ·E  %E  ·E  v  C           Ä  F  ŒK  ÎE  ŒK  Ä             Ä ÍF  KI  ‚F  KI  á              4G   I  ,G   I  â               qH  	I  iH  	I  ì             )L  íL  !L  íL  ƒ  $          Ä ÓL  ¡N  ÊL  ¡N     	           "M  æN  M  æN  À  #           Ä ‚N  rT  ÕN  rT  €            Ä èP   R  áP   R  Ô              ’P  £R  ÕP  £R  Ò               ˛Q  êR  ˆQ  êR  ˚            Ä äT  ÍU  tT  ÍU  !              ¢U  ÷U  öU  ÷U  .  (          Ä ˇU  3k  ÏU  3k  5              7V  ^W  /V  ^W  6  3           Ç ¨W  Å^  §W  Å^  B              l\  9]  d\  9]  g  1            Ω_  k  µ_  k  Ñ              Jg  k  Bg  k  À  E            üi  Tj  ói  Tj  ◊              Nk  @m  5k  @m  Ê              Úk  8m  Ík  8m  Ì  !           Ä Tm  +z  Bm  +z                
+n  Np  n  Np    $             yp  ˘p  Xp  ˘p  !  #            iq  \t  aq  \t  +  #            *v  Øv  "v  Øv  [  $            &w  ax  w  ax  c  &           Ç çx  #z  Öx  #z  p  )            
+y  vy  y  vy  t               ÿy  z  –y  z  |               Iz  ·z  -z  ·z  É              qz  ›z  iz  ›z  Ñ  #          Ä ˝z  ‘{  „z  ‘{  ã              *{  –{  "{  –{  å            Ä Í{  ?Ç  ÷{  ?Ç  ô             Ç Ø|  °Å  ß|  °Å  †             Ä π}  ïÅ  ±}  ïÅ  ´              Â}  ~  ›}  ~  ¨              ±~  1Ä  ©~  1Ä  ¥  (           àÄ  :Å  ÄÄ  :Å  ¡  5             —Å  ıÅ  …Å  ıÅ  –  -           Ä äÇ  óà  oÇ  óà  ◊             Ç OÉ  ˘á  GÉ  ˘á  ﬁ             Ä ®Ñ  Ìá  †Ñ  Ìá  Ó              ‘Ñ  Ö  ÃÑ  Ö  Ô              †Ö  jÜ  òÖ  jÜ  ˜  (           ¡Ü  íá  πÜ  íá  ˛  5             )à  Mà  !à  Mà    -             Æà  ç  ôà  ç                â  aä  â  aä    7            ìä  Ëå  ãä  Ëå  %               (ç  ıé  ç  ıé  :              Øç  Ìé  ßç  Ìé  ?  !             è  Jê  ˜é  Jê  S  $            °è  Fê  ôè  Fê  W  -             hê  î  Lê  î  a              öê  Ïê  íê  Ïê  b  -             ë  rë  ë  rë  g  1            ”ë  ºí  Àë  ºí  n  7           Ç í  ∂í  í  ∂í  o  =             ví  ©í  ní  ©í  r             Ç ì  î  ì  î  y  :             Øì  Úì  ßì  Úì               Ä $î   ≥  î   ≥  Ü              Ëî  ï  ‡î  ï  ã  %            Iï  ˆï  Aï  ˆï  ê                ûñ  Õñ  ññ  Õñ  û               -ò  ñò  %ò  ñò  Ø              ô  >ô  ˛ò  >ô  ∏  $            Ôõ  §û  Áõ  §û  Ã               ú   ù  ú   ù  Õ  #            *ù  öû  "ù  öû  ‘  '            †  s°  †  s°  Ô  "            ó°  ‡¢  è°  ‡¢  ˛             Ç ¡£  ≤•  π£  ≤•    '             q§  ¨•  i§  ¨•              Ç Á•  ‡ß  ﬂ•  ‡ß  *  $             _¶  ´ß  W¶  ´ß  /               Yß  üß  Qß  üß  8             ®  8®  ®  8®  @  (            c®  ó®  [®  ó®  C  (           Ç √®  t©  ª®  t©  F  )             /©  n©  '©  n©  J              ﬁ©  ™  ÷©  ™  O  $            t™  O´  l™  O´  T  %            }´  (¨  u´  (¨  \  +           Ç [¨  èØ  S¨  èØ  c              º¨  âØ  ¥¨  âØ  g               ≥  é≥  ≥  é≥  ¨              °≥   ¥  ê≥   ¥  ¥               6¥  v∂  "¥  v∂  º              Ç∂  Œ∂  z∂  Œ∂  ’  
+             $∑  ’∏  ∑  ’∏  €            Ä Ù∏  “∫  ◊∏  “∫  Ù             íπ  ú∫  äπ  ú∫  ¯            5°›â˙S$      
+c·c·DµõÁc·   É    O^partitionKey=%28http%2C172.31.54.141%2C30917%29,:http://172.31.54.141:30917/js/gogs.js?v=cefbaa08d92cdb2b888f5ec913dfe38e5027b20a strongly-framed 1 request-method GET response-head HTTP/1.1 200 OK
+Accept-Ranges: bytes
+Content-Length: 47827
+Content-Type: text/javascript; charset=utf-8
+Etag: "NDc4Mjdnb2dzLmpzTW9uLCAwMSBKYW4gMDAwMSAwMDowMDowMCBHTVQ="
+Date: Sat, 10 Sep 2022 04:21:53 GMT
+ original-response-headers Accept-Ranges: bytes
+Content-Length: 47827
+Content-Type: text/javascript; charset=utf-8
+Etag: "NDc4Mjdnb2dzLmpzTW9uLCAwMSBKYW4gMDAwMSAwMDowMDowMCBHTVQ="
+Date: Sat, 10 Sep 2022 04:03:03 GMT
+ ctid 2 uncompressed-len 0 net-response-time-onstart 108 net-response-time-onstop 109 necko:classified 1 alt-data 1;47827,javascript/moz-bytecode-20220202182137-8l alt-data-from-child 1   ª
