@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata: 
+  name: daemon1
+spec:
+  selector:
+    matchLabels:
+       name: daemon1
+  template:
+    metadata:
+       labels:
+          name: daemon1
+    spec:
+      containers:
+      - name: mysql
+        image: mysql
+        ports:
+        - containerPort: 3306
+

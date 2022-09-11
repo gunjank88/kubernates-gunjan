@@ -631,3 +631,139 @@ kubectl create -f initdata1.yaml
 kubectl create -f initdata.yaml 
 kubectl get pods
 kubectl logs initpod-1
+vi replicaset.yaml
+kubectl create -f replicaset.yaml 
+vi replicaset.yaml
+kubectl create -f replicaset.yaml 
+vi replicaset.yaml
+kubectl create -f replicaset.yaml 
+vi replicaset.yaml
+kubectl create -f replicaset.yaml 
+vi replicaset.yaml
+kubectl create -f replicaset.yaml 
+vi replicaset.yaml
+kubectl create -f replicaset.yaml 
+vi replicaset.yaml
+kubectl create -f replicaset.yaml 
+vi replicaset.yaml
+kubectl create -f replicaset.yaml 
+kubectl get pod
+vi replicaset.yaml
+kubectl get pod
+kubectl create -f replicaset.yaml 
+vi replicaset.yaml
+kubectl create -f replicaset.yaml 
+kubectl get pod
+kubectl delete pod replicatest-fftl8
+kubectl delete pod replicatest-jfnbp
+kubectl delete pod replicatest-x6cz4
+kubectl get pod
+ls -lrt
+which git
+mkdir pod
+cd pod/
+pwd
+vi staticpod.yaml
+cd /etc/systemd/
+ls
+cd system/
+ls
+cd kubelet.service.d/
+ls
+pwd
+sudo vi /etc/systemd/system/kubelet.service.d/10-kubeadm.conf 
+pwd
+sudo vi /etc/systemd/system/kubelet.service.d/10-kubeadm.conf 
+systemctl restart kubelet
+sudo systemctl restart kubelet
+sudo systemctl daemon-reload 
+cd /home/labsuser/pod/
+ls -rlt
+kubectl create -f staticpod.yaml 
+sudo systemctl status kubelet
+vi staticpod.yaml 
+kubectl create -f staticpod.yaml 
+vi staticpod.yaml 
+kubectl create -f staticpod.yaml 
+kubectl get pod
+docker ps | grep httpd
+sudo docker ps | grep httpd
+kubectl get pods -n kube-system
+sudo docker ps | grep https
+sudo docker ps | grep httpd
+kubectl get pod
+kubectl descibe pod staticpod1
+kubectl describe pod staticpod1
+vi staticpod.yaml 
+kubectl get pod
+vi staticpod.yaml 
+kubectl get pod
+sudo vi /etc/systemd/system/kubelet.service.d/10-kubeadm.conf 
+sudo systemctl daemon-reload 
+sudo systemctl restart kubelet
+sudo systemctl status kubelet
+sudo systemctl daemon-reload 
+sudo systemctl status kubelet
+sudo systemctl restart kubelet
+sudo vi /etc/systemd/system/kubelet.service.d/10-kubeadm.conf 
+sudo systemctl daemon-reload 
+sudo systemctl restart kubelet
+sudo systemctl status kubelet
+kubectl get pod
+sudo systemctl status kubelet
+kubectl get pod
+sudo systemctl status kubelet
+sudo vi /etc/systemd/system/kubelet.service.d/10-kubeadm.conf 
+sudo systemctl status kubelet
+cd ..
+git init
+git remote add origin https://github.com/gunjank88/kubernates-gunjan.git
+git remote -v
+git add .
+git commit -m "kubernates 6th session"
+git status
+ls -rlt
+git commit -m "kubernates 6th session"
+git config --global user.email "k.gunjan88@gmail.com"
+it config --global user.name "gunjank88"
+git config --global user.name "gunjank88"
+git commit -m "kubernates 6th session"
+git log --oneline
+git push -u origin main
+git brach
+git brach -a
+git branch -a
+git branch -m master main
+kubectl create deployment mydep image=ghost:0.9 --dry-run=client -o yaml > deproll.yaml
+kubectl create deployment mydep --image=ghost:0.9 --dry-run=client -o yaml > deproll.yaml
+vi deproll.yaml 
+kubectl create -f deproll.yaml 
+vi deproll.yaml 
+kubectl create -f deproll.yaml 
+kubectl rollout history deployment/mydep
+kubectl get deployment
+kubectl rollout history deployment/mydep
+vi deproll.yaml 
+kubectl rollout history deployment/mydep1
+vi deproll.yaml 
+kubectl create -f deproll.yaml 
+kubectl get deployment 
+kubectl revision history deployment/mydep1
+kubectl rollout history deployment/mydep1
+kubectl set image deployment/mydep1 ghost:ghost:0.10 --record
+kubectl set image deployment/mydeptest ghost=mysql:latest --record
+kubectl set image deployment/mydep1 ghost=ghost:0.10 --record
+kubectl rollout history deployment/mydep1
+kubectl rollout undo deployment/mydep1 --to-revision=1
+vi daemonset.yaml
+vi replicaset.yaml 
+vi daemonset.yaml
+kubectl create -f daemonset.yaml 
+vi daemonset1.yaml
+cat daemonset1.yaml 
+vi daemonset
+vi daemonset.yaml 
+kubectl create -f daemonset.yaml 
+vi daemonset.yaml 
+kubectl create -f daemonset.yaml 
+kubectl get ds
