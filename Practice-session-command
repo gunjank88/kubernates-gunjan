@@ -1,0 +1,1140 @@
+CKA 
+
+
+08/28/2022
+
+Cluster setup: 
+
+sudo kubeadm reset on all machines as this will clean up the entire cluster
+
+Run on Master node:
+sudo hostnamectl set-hostname master.example.com 
+exec bash
+
+Run on node 1: 
+sudo hostnamectl set-hostname worker-node-1.example.com
+exec bash
+
+Run on node 2: 
+sudo hostnamectl set-hostname worker-node-2.example.com
+exec bash
+
+
+Step 2: Setting up the master node and configuring the cluster
+2.1   Run the following command to initiate kubeadm:
+sudo kubeadm init --pod-network-cidr=192.168.0.0/16
+2.2   Run the following commands on the master node to allow non-root users to access use kubeadm:
+mkdir -p $HOME/.kube
+sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+sudo chown $(id -u):$(id -g) $HOME/.kube/config
+2.3   Run the following command for joining the worker nodes to the cluster and save it:
+sudo kubeadm token create --print-join-command
+
+
+2.4   Type the following command to add the Weave Net CNI plugin for highly available clusterUse:
+kubectl apply -f https://cloud.weave.works/k8s/net?k8s-version=$(kubectl version | base64 | tr -d '\n')
+
+
+Step 3: Joining the worker nodes to the cluster
+3.1   Go to Worker1 node and run the kubeadm join command copied in Step 2.3 to join this node as a worker node to the cluster:
+sudo kubeadm join 172.31.32.95:6443 --token cjg9s8.e1ko8jtkm167us5q --discovery-token-ca-cert-hash sha256:d98a8654f6a549fb63f3782584c97da0b4e496ba800c139835e79bac59d20810
+
+3.2   Go to the Worker2 node and repeat Step 3.1 to join this node as a worker node to the cluster:
+
+
+Step 4: Verifying the nodes in the cluster
+4.1   Navigate to the master node tab and verify the nodes that are added to the cluster
+4.2   Run the following commands:
+kubectl get nodes
+kubectl get namespaces
+kubectl get pods --all-namespaces
+
+If you face issues with the docker or the startup of kubeadm use the following for solution: 
+Note: Run the following command if an error occurs on the master and all nodes while executing kubeadm:
+sudo mkdir /etc/docker
+cat <<EOF | sudo tee /etc/docker/daemon.json
+{
+  "exec-opts": ["native.cgroupdriver=systemd"],
+  "log-driver": "json-file",
+  "log-opts": {
+	"max-size": "100m"
+  },
+  "storage-driver": "overlay2"
+}
+EOF
+—------------------------------------------------------------
+sudo systemctl enable docker
+sudo systemctl daemon-reload
+sudo systemctl restart docker
+sudo swapoff -a
+
+
+
+
+Date: 09/03/2022
+
+Openshift pod
+
+Pod 1: 
+
+apiVersion: v1
+kind: Pod
+metadata: 
+  name: mypod1
+  labels:
+    mycka: opens
+spec:
+  containers:
+  - name: mycontainer1
+    image: openshift/hello-openshift
+    ports: 
+    - containerPort: 80
+
+
+Pod 2: 
+
+apiVersion: v1
+kind: Pod
+metadata: 
+  name: mypod2
+  labels:
+    mycka: opens
+spec:
+  containers:
+  - name: mycontainer1
+    image: openshift/hello-openshift
+    ports: 
+    - containerPort: 80
+
+Commands to execute: 
+
+Curl <ipaddress of pod>:8080
+
+History:
+
+ 
+  390  kubectl create -f openshift-pod.yaml 
+  391  kubectl get pods
+  392  vi openshift2-pod.yaml
+  393  cat openshift-pod.yaml 
+  394  vi openshift2-pod.yaml
+  395  kubectl create -f openshift2-pod.yaml 
+  396  vi openshift2-pod.yaml
+  397  kubectl create -f openshift2-pod.yaml 
+  398  kubectl get pods
+  399  kubectl get pods -o wide
+  400  curl 10.38.0.1:80
+  401  curl 10.38.0.1:8080
+  402  curl 10.38.0.2:8080
+
+
+
+
+Pod for mysql: 
+
+apiVersion: v1
+kind: Pod
+metadata: 
+  name: mysql1
+spec: 
+  containers:
+  - name: mysql
+    image: docker.io/mysql
+    env:
+      - name: "MYSQL_USER"
+        value: "mysql"
+      - name: "MYSQL_PASSWORD"
+        value: "mysql"
+      - name: "MYSQL_DATABASE"
+        value: "cka"
+      - name: "MYSQL_ROOT_PASSWORD"
+        value: "redhat"
+    ports:
+        - containerPort: 3306
+
+
+After this to execute the pod: 
+
+Kubectl exec -it <podname> bash
+
+
+History: 
+
+407  vi mysql.yaml
+  408  kubectl create -f mysql.yaml 
+  409  kubectl exec -it mysql1 bash
+
+ mysql -u <user> -p
+  Show databases;
+
+  410  cat mysql.yaml 
+
+
+
+Task: 
+
+Create pod for Psql
+
+https://hub.docker.com/_/postgres
+
+
+
+413  kubectl create deployment test1 --image=docker.io/httpd
+  414  kubectl get deployment
+  415  kubectl get deployment -o wide
+  416  kubectl scale deployments test1 --replicas=4
+  417  kubectl get deployment -o wide
+  418  kubectl get pods
+  419  kubectl delete pod test1-77bfc89b9d-4885c
+  420  kubectl get pods
+428  kubectl scale deployments test1 --replicas=1
+  429  kubectl expose deployment test1 --port=80
+  430  kubectl get service
+  431  kubectl describe svc test1
+  432  kubectl describe service test1
+
+
+
+
+
+
+
+Task:
+
+Create deployment using above logic for openshift/hello-openshift with replica 3
+
+
+vi openshift-dep.yaml
+  435  kubectl create -f openshift-dep.yaml 
+  436  vi openshift-dep.yaml
+  437  kubectl create -f openshift-dep.yaml 
+  438  vi openshift-dep.yaml
+  439  kubectl create -f openshift-dep.yaml 
+  440  kubectl get deployment -o wide
+  441  kubectl get pods -o wide
+  442  kubectl describe deployment openshift-deployment
+  443  cat openshift-dep.yaml 
+  444  kubectl get pods
+  445  vi openservice.yaml
+  446  kubectl create -f openservice.yaml 
+  447  vi openservice.yaml
+  448  kubectl create -f openservice.yaml 
+  449  vi openservice.yaml
+  450  kubectl create -f openservice.yaml 
+  451  vi openservice.yaml
+  452  kubectl create -f openservice.yaml 
+  453  kubectl describe service openservice
+  454  history
+
+
+Yaml for openshift deployment: 
+
+apiVersion: apps/v1
+kind: Deployment
+metadata: 
+  name: openshift-deployment
+spec: 
+  selector:
+     matchLabels:
+       app: openshift-deployment
+  replicas: 2
+  template: 
+     metadata: 
+        labels:
+          app: openshift-deployment
+     spec:
+       containers:
+       - name: openshift
+         image: openshift/hello-openshift
+         ports:
+         - containerPort: 80
+
+
+YAML for service: 
+
+apiVersion: v1
+kind: Service
+metadata: 
+  name: openservice
+spec:
+  selector: 
+     app: openshift-deployment
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 80
+
+
+Deployment edits: 
+
+
+462  kubectl get deployments
+  463  kubectl describe deployment test1
+  464  kubectl edit deployment test1
+  465  kubectl get pods
+  466  kubectl get pods -o wide
+  467  kubectl describe pod test1-77bfc89b9d-tm2cj 
+  468  kubectl rollout resume deployment.v1.apps/test1
+  469  kubectl get pods -o wide
+  470  kubectl describe pod test1-77bfc89b9d-tm2cj 
+  471  kubectl get pods -o wide
+  472  kubectl describe pod test1-5d77f59d-w5hnn
+  473  kubectl rollout pause deployment.v1.apps/test1
+  474  kubectl edit deployment test1
+  475  kubectl rollout resume deployment.v1.apps/test1
+  476  kubectl get pods
+  477  kubectl describe pod test1-7bf5b44665-vvjfc
+
+
+Changed replica from 1 to 2
+replicas: 2
+
+Changed the image: 
+- image: docker.io/httpd:latest
+
+Job: 
+
+labsuser@master:~$ cat pi.yaml 
+apiVersion: batch/v1 
+kind: Job
+metadata:
+   name: pi1
+spec:
+  template:
+      spec:
+        containers:
+        - name: pi1
+          image: perl
+          command: ["perl", "-Mbignum=bpi", "-wle", "print bpi(20000)"]
+        restartPolicy: Never
+  backoffLimit: 4
+
+
+History: 
+
+501  vi pi.yaml
+  502  kubectl create -f pi.yaml 
+  503  kubectl get pods
+  504  kubectl logs pi1-66mqg
+  505  kubectl get pods
+
+
+  512  kubectl logs openshift-deployment-66456f5985-xf524
+  513  kubectl logs mysql1
+  514  cd /var/log/containers/
+  515  ls -lrt
+  516  clear
+  517  cd /var/log/containers/
+  518  ls -lrt
+  519  kubectl get nodes
+  520  kubectl describe node master.example.com
+  521  kubectl describe node worker-node-1.example.com
+  522  kubectl explain service 
+  523  kubectl explain job
+  524  history
+
+
+History:
+
+  577  kubectl get namespaces
+  579  kubectl get pods -n kube-node-lease
+  580  kubectl get pods -n kube-public
+  581  kubectl get pods -n kube-system
+  582  kubectl get namespaces
+  583  kubectl get pods -n default
+  584  kubectl create namespace kartik
+  585  kubectl get pods -n kartik
+  586  vi kartikpod.yaml
+  587  kubectl create -f kartikpod.yaml 
+  588  kubectl get pods
+  589  kubectl get pods -n kartik
+  590  history
+
+
+Pod:
+
+apiVersion: v1
+kind: Pod
+metadata: 
+  name: mysql1
+  namespace: kartik
+spec: 
+  containers:
+  - name: mysql
+    image: docker.io/mysql
+    env:
+      - name: "MYSQL_USER"
+        value: "mysql"
+      - name: "MYSQL_PASSWORD"
+        value: "mysql"
+      - name: "MYSQL_DATABASE"
+        value: "cka"
+      - name: "MYSQL_ROOT_PASSWORD"
+        value: "redhat"
+    ports:
+        - containerPort: 3306
+
+
+
+Task: 
+
+Create namespace: dev
+Under the namespace: dev create a deployment for httpd
+
+History:
+
+ 610  kubectl create namespace dev
+  612  kubectl create deployment httpd --image=docker.io/httpd -n dev --replicas=3
+  613  kubectl get pods -n dev
+  614  kubectl edit deployment httpd -n dev
+
+
+Task: 
+
+Create a namespace: openshift
+Create a deployment image: openshift/hello-openshift with replica=2
+
+
+619  kubectl create deployment httpd --image=docker.io/httpd -n dev --replicas=3 --dry-run=client -o yaml > httpddev.yaml
+  620  cat httpddev.yaml 
+  621  vi httpdedev.ya
+  622  vi httpddev.yaml 
+  623  kubectl create -f httpddev.yaml 
+  624  kubectl get pods -n dev
+
+
+Yaml which was created from the command: 
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: httpd1
+  name: httpd1
+  namespace: dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: httpd1
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: httpd1
+spec:
+      containers:
+      - image: docker.io/httpd
+        name: httpd
+        resources: {}
+status: {}
+
+
+
+How to delete a node and add a node to the cluster: 
+
+History:
+
+  628  kubectl get pods -o wide
+  629  kubectl describe node master.example.com
+  630  kubectl describe node worker-node-1.example.com
+  631  kubectl delete node worker-node-1.example.com
+  632  kubectl get nodes
+  633  kubectl get pods
+  634  kubectl get pods -o wide
+  635  vi noderegnode1.json
+  636  kubectl create -f noderegnode1.json 
+  637  kubectl get nodes
+  638  kubectl get pods -o wide
+  639  cat noderegnode1.json
+
+
+To add: 
+
+labsuser@master:~$ cat noderegnode1.json 
+{
+ "kind": "Node",
+ "apiVersion": "v1",
+ "metadata": {
+   "name": "worker-node-1.example.com",
+   "labels": {
+     "name": "firstnode"
+    }
+   }
+  }
+
+
+Command: 
+
+Kubectl create -f noderegnode1.json
+
+
+
+
+Multi Tier Application: 
+
+Using mysql and wordpress example
+
+
+Mysql deployment: 
+
+labsuser@master:~$ cat mysqlapp.yaml 
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+	app: mysql
+  name: mysql
+spec:
+  replicas: 1
+  selector:
+	matchLabels:
+  	app: mysql
+  strategy: {}
+  template:
+	metadata:
+  	creationTimestamp: null
+  	labels:
+    	app: mysql
+	spec:
+  	containers:
+  	- image: mysql:5.6
+    	name: mysql
+    	env:
+    	- name: MYSQL_ROOT_PASSWORD
+      	value: redhat
+    	- name: MYSQL_DATABASE
+      	value: database1
+    	resources: {}
+status: {}
+
+
+Wordpress deployment: 
+
+labsuser@master:~$ cat wordpressapp.yaml 
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+	app: mysql
+  name: mysql
+spec:
+  replicas: 1
+  selector:
+	matchLabels:
+  	app: mysql
+  strategy: {}
+  template:
+	metadata:
+  	creationTimestamp: null
+  	labels:
+    	app: mysql
+	spec:
+  	containers:
+  	- image: mysql:5.6
+    	name: mysql
+    	env:
+    	- name: MYSQL_ROOT_PASSWORD
+      	value: redhat
+    	- name: MYSQL_DATABASE
+      	value: database1
+    	resources: {}
+status: {}
+
+
+
+
+HISTORY:
+
+
+645  kubectl create deployment mysql --image=docker.io/mysql:5.6 --dry-run=client -o yaml > mysqlapp.yaml
+  646  vi mysqlapp.yaml 
+  647  kubectl create -f mysqlapp.yaml 
+  648  kubectl get pods
+  649  kubectl describe deployment mysql-5bf475784d-dsz47
+  650  kubectl describe pod mysql-5bf475784d-dsz47
+  651  kubectl logs mysql-5bf475784d-dsz47
+  652  kubectl create deployment wordpress --image=wordpress --dry-run=client -o yaml > wordpressapp.yaml
+  653  vi wordpressapp.yaml 
+  654  kubectl create -f wordpressapp.yaml 
+  655  kubectl get pods
+  656  kubectl get deployments
+  657  kubectl expose deployment mysql --port=3306
+  658  kubectl describe pod wordpress-fb6df58c8-f5h9s
+  659  kubectl logs wordpress-fb6df58c8-f5h9s
+  660  kubectl expose deployment wordpress --port=80
+  661  kubectl get svc
+  662  kubectl edit svc mysql
+  663  kubectl edite svc wordpress
+  664  kubectl edit svc wordpress
+  665  kubectl get pods -o wide
+  666  kubectl get svc
+  667  kubectl get nodes -o wide
+  668  vi mysqlapp.yaml 
+  669  vi wordpressapp.yaml 
+  670  kubectl get nodes -o wide
+  671  ls -lrt
+  672  vi mysqltest.yaml
+  673  vi mysqlapp.yaml 
+  674  cat mysqlapp.yaml 
+  675  cat wordpressapp.yaml 
+  676  history
+
+
+Reference for changing the clusterIP to NodePort: 
+
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: "2022-09-03T15:15:00Z"
+  labels:
+    app: mysqltest
+  name: mysqltest
+  namespace: default
+  resourceVersion: "72812"
+  uid: 6af96cae-dbf6-4098-9f3d-21f240991fae
+spec:
+  clusterIP: 10.98.140.170
+  clusterIPs:
+  - 10.98.140.170
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - nodePort: 30522
+    port: 3306
+    protocol: TCP
+    targetPort: 3306
+  selector:
+    app: mysqltest
+  sessionAffinity: None
+  type: NodePort
+status:
+  loadBalancer: {}
+
+
+
+Under the deployment of Wordpress: 
+
+spec:
+      containers:
+      - env:
+        - name: WORDPRESS_DB_HOST
+          value: mysqltest
+        - name: WORDPRESS_DB_PASSWORD
+          value: redhat
+        - name: WORDPRESS_DB_USER
+          value: root
+        - name: WORDPRESS_DB_NAME
+          value: database1
+        image: wordpress
+        imagePullPolicy: Always
+
+
+Make sure to change the value of WORDPRESS_DB_HOST to the mysql deployment name. 
+
+
+Task: 
+
+Create deployment postgres
+Create deployment gogs
+Create svc on top of both using NodePort
+Try to access the gogs UI
+
+Image for gogs: docker.io/gogs/gogs
+
+
+Psql – deployment file: 
+
+labsuser@master:~$ cat psql1.yaml 
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: psql
+  name: psql
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: psql
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: psql
+    spec:
+      containers:
+      - image: postgres
+        name: postgres
+        env:
+        - name: POSTGRES_PASSWORD
+          value: redhat
+        - name: POSTGRES_DB
+          value: data1
+        resources: {}
+status: {}
+
+
+Gogs – deployment file:
+
+labsuser@master:~$ cat gogs.yaml 
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: gogs
+  name: gogs
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gogs
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: gogs
+    spec:
+      containers:
+      - image: docker.io/gogs/gogs
+        name: gogs
+        resources: {}
+status: {}
+
+
+
+History:
+
+775  kubectl create deployment psql --image=postgres --dry-run=client -o yaml > psql1.yaml
+  776  vi psql1.yaml 
+  777  kubectl create -f psql1.yaml 
+  778  kubectl get deployments
+  779  ~kubectl create deployment gogs --image=docker.io/gogs/gogs --dry-run=client -o yaml > gogs.yaml
+  780  kubectl create deployment gogs --image=docker.io/gogs/gogs --dry-run=client -o yaml > gogs.yaml
+  781  vi gogs.yaml 
+  782  kubectl create -f gogs.yaml 
+  783  kubectl get pods
+  784  kubectl get deployments
+  785  kubectl expose deployment psql --port=5432
+  786  kubectl expose deployment gogs --port=3000
+  787  kubectl edit svc psql
+  788  kubectl edit svc gogs
+  789  kubectl get svc
+  790  kubectl get pods -o wide
+  791  kubectl get nodes -o wide
+
+
+Things to follow on gogs UI: 
+
+Host: <postgres_deploymen_namet>
+User name for the user on gogs: postgres
+Database name: <as per postgres deployment yaml>
+
+
+
+Voting App: 
+
+793  kubectl create namespace vote
+  794  git clone https://github.com/dockersamples/example-voting-app.git
+  795  cd example-voting-app/
+  796  ls -lrt
+  797  kubectl create -f k8s-specifications/
+  798  kubectl get pods -n vote -o wide
+  799  kubectl get svc -n vote -o wide
+  800  kubectl get nodes -o wide
+  801  history
+After class task: 
+
+To create voting app manually
+
+
+Youtube video link: 
+
+
+
+
+Adding pods to node and making the pods to select the nodes: 
+
+
+Example 1: 
+
+Adding node option to the pod: 
+
+
+labsuser@master:~$ cat node.yaml 
+apiVersion: v1
+kind: Pod
+metadata: 
+  name: nginx11
+  labels: 
+   env: test
+spec:
+   containers:
+   - name: nginx11
+     image: httpd
+   nodeName: worker-node-1.example.com
+
+
+History: 
+
+
+ 819  kubectl edit node master.example.com
+  820  kubectl get nodes -o wide
+  821  kubectl describe node master.example.com
+  822  kubectl edit node master.example.com
+  823  kubectl describe node master.example.com
+  824  kubectl get nodes -o wide
+  825  kubectl edit node master.example.com
+  826  vi node.yaml 
+  827  kubectl create -f node.yaml
+  828  vi node.yaml 
+  829  kubectl create -f node.yaml
+  830  kubectl get pods -o wide
+  831  kubectl label node worker-node-1.example.com color=black
+  832  kubectl label node worker-node-2.example.com color=white
+  833  kubectl get nodes --show-labels
+  834  vi nodepod.yaml
+  835  kubectl create -f nodepod.yaml 
+  836  vi nodepod.yaml
+  837  kubectl create -f nodepod.yaml 
+  838  vi nodepod.yaml
+  839  kubect get pods -o wide
+  840  kubectl get pods -o wide
+
+
+
+Removed the Taints from master node: 
+
+Kubectl edit node master.example.com
+
+______
+Taints:
+Effect: NoSchedule
+Key: node-role.kubernetes.io/master
+—--------
+
+
+labsuser@master:~$ cat node.yaml 
+apiVersion: v1
+kind: Pod
+metadata: 
+  name: nginx11
+  labels: 
+   env: test
+spec:
+   containers:
+   - name: nginx11
+     image: httpd
+   nodeSelector:
+      env: cka
+
+
+
+Node Affinity: 
+
+
+labsuser@master:~$ cat nodepod.yaml 
+apiVersion: v1
+kind: Pod
+metadata: 
+  name: httpd-node
+spec:
+  affinity:
+    nodeAffinity:
+       preferredDuringSchedulingIgnoredDuringExecution:
+       - weight: 1
+         preference:
+            matchExpressions:
+            - key: color
+              operator: NotIn
+              values:
+              - black
+  containers:
+  - name: httpd
+    image: docker.io/httpd
+
+
+Added labels to the nodes: 
+
+  831  kubectl label node worker-node-1.example.com color=black
+  832  kubectl label node worker-node-2.example.com color=white
+
+To remove the labels from the nodes: 
+
+ 846  kubectl label node worker-node-1.example.com color-
+  847  kubectl get nodes --show-labels
+  848  kubectl label node worker-node-2.example.com color-
+  849  kubectl get nodes --show-labels
+
+
+Init Containers: 
+
+In this case, you will have some pre-startup scripts or some checks which you might want to perform before the actual workload runs:
+
+Below is the pod yaml:
+
+labsuser@master:~$ cat init.yaml 
+apiVersion: v1
+kind: Pod
+metadata:
+  name: myapp-pod11
+  labels:
+    app: myapp
+spec: 
+  containers:
+  - name: myapp-container
+    image: busybox
+    command: ['sh','-c','echo The app is running && sleep 3600']
+  initContainers:
+  - name: init-myservice
+    image: busybox
+    command: ['sh','-c',"until nslookup myservice.$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace).svc.cluster.local; do echo waiting for myservice; sleep 2; done"]
+
+
+Below is the service yaml, needed for the service which will be checking if the service is up and running or not, before running the pod. 
+
+labsuser@master:~$ cat initsvc.yaml 
+apiVersion: v1
+kind: Service
+metadata:
+  name: myservice
+spec:
+   ports:
+   - protocol: TCP
+     port: 80
+     targetPort: 9376
+
+
+
+History:
+
+  796  kubectl create -f init.yaml
+  797  kubectl get pods
+  798  clear
+  799  vi initsvc.yaml
+  800  kubectl create -f initsvc.yaml 
+  801  kubectl get pods
+  802  cat init.yaml 
+  803  kubectl logs myapp-pod
+  804  kubectl logs myapp-pod11
+  805  cat initsvc.yaml 
+  806  history
+
+
+
+
+Multi init containers: 
+
+POD yaml file:
+
+labsuser@master:~$ cat init2-cont.yaml 
+apiVersion: v1
+kind: Pod
+metadata:
+  name: initpod-1
+  labels: 
+    app: initpod
+spec: 
+  containers: 
+  - name: initpod-container
+    image: registry.access.redhat.com/ubi8/ubi
+    command: ['sh','-c','echo The App is running! && sleep 3600']
+  initContainers: 
+  - name: initpod-service1
+    image: registry.access.redhat.com/ubi8/ubi
+    command: ['sh','-c','until getent hosts service1; do echo waiting for service1; sleep 2; done;']
+  - name: initpod-data1
+    image: registry.access.redhat.com/ubi8/ubi
+    command: ['sh','-c','until getent hosts data1; do echo waiting for data1; sleep 2; done;']
+
+
+
+
+
+Service yaml 1: 
+
+labsuser@master:~$ cat svc.yaml 
+apiVersion: v1
+kind: Service
+metadata: 
+  name: service1
+spec: 
+  ports: 
+  - protocol: TCP
+    port: 80
+    targetPort: 9376
+
+
+Service yaml 2: 
+
+labsuser@master:~$ cat svc.yaml 
+apiVersion: v1
+kind: Service
+metadata: 
+  name: data1
+spec: 
+  ports: 
+  - protocol: TCP
+    port: 80
+    targetPort: 9377
+
+
+
+ReplicaSet: 
+
+ 909  vi replicaset.yaml
+  910  kubectl create -f replicaset.yaml 
+  911  kubectl get pods
+
+
+YAML for replicaSet: 
+
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata: 
+  name: replicatest
+  labels: 
+    app: replicaset
+    tier: frontend
+spec: 
+  replicas: 3
+  selector: 
+    matchLabels: 
+      tier: frontend
+  template:
+     metadata:
+         labels: 
+           tier: frontend
+     spec: 
+       containers:
+       - name: redis
+         image: gcr.io/google_samples/gb-frontend:v3
+
+
+
+Static Pods used for having predefined pods for/during cluster startup: 
+
+NOTE: Need to run on Worker node
+
+  110  sudo vi /etc/systemd/system/kubelet.service.d/10-kubeadm.conf 
+
+On the last line: Add:  --pod-manifest-path=/test
+
+
+Last line in the file: 
+
+ExecStart=/usr/bin/kubelet $KUBELET_KUBECONFIG_ARGS $KUBELET_CONFIG_ARGS $KUBELET_KUBEADM_ARGS $KUBELET_EXTRA_ARGS --pod-manifest-path=/test
+
+
+  111  sudo systemctl daemon-reload
+  112  sudo systemctl restart kubelet
+  113  sudo systemctl status kubelet
+  114  vi test/pod.yaml
+  115  sudo vi test/pod.yaml
+  116  kubectl get pods
+  117  sudo systemctl status kubelet
+  118  ssudo docker ps | grep httpd
+  119  sudo docker ps | grep httpd
+  120  sudo systemctl status kubelet
+  121  ssudo docker ps | grep httpd
+  122  sudo docker ps | grep httpd
+  123  history
+
+
+labsuser@worker-node-1:/$ cat test/pod.yaml 
+apiVersion: v1
+kind: Pod
+metadata:
+   name: pod1
+   labels: 
+     app: web
+spec: 
+  containers:
+  - name: container1
+    image: docker.io/httpd
+    ports: 
+    - containerPort: 80
+
+
+
+Deployment Rollout versions: 
+
+It is used to change the image versions and to have less down time if anything goes wrong with the newer images: 
+
+966  vi deproll.yaml 
+  967  kubectl create -f deproll.yaml 
+  968  kubectl rollout history deployment/mydeptest
+  969  cat deproll.yaml 
+  970  kubectl set image deployment/mydeptest ghost=mysql:latest --record
+  971  kubectl rollout history deployment/mydeptest
+  972  kubectl rollout undo deployment/mydeptest --to-revision=1
+  973  kubectl rollout history deployment/mydeptest
+  974  history
+
+
+Deproll.yaml:
+
+labsuser@master:~$ cat deproll.yaml 
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations: 
+    kubernetes.io/change-cause: kubectl run mydep --image=mysql:5.6 --record=true --dry-run=true --output=yaml
+  creationTimestamp: null
+  labels:
+    app: mydeptest
+  name: mydeptest
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mydeptest
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: mydeptest
+    spec:
+      containers:
+      - image: mysql:5.6
+        name: ghost
+        resources: {}
+status: {}
+
+
+DaemonSet: 
+
+labsuser@master:~$ cat daemon.yaml 
+apiVersion: apps/v1
+kind: DaemonSet
+metadata: 
+  name: daemon1
+spec:
+  selector:
+    matchLabels:
+       name: daemon1
+  template:
+    metadata:
+       labels:
+          name: daemon1
+    spec:
+      containers:
+      - name: mysql
+        image: mysql
+        ports:
+        - containerPort: 3306
+
+
+
